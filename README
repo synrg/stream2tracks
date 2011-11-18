@@ -11,7 +11,7 @@ $ sudo apt-get install git ruby ruby-nokogiri mplayer ffmpeg id3v2 lltag
 $ git clone git@github.com:synrg/asx2mp3.git
 
 There is no proper cli, nor proper handling of output yet, but if you want
-to do a test run, usage as as follows
+to do a test run, usage is as follows.
 
 Usage:
 
