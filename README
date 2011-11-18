@@ -15,8 +15,8 @@ Install:
 
 $ cp asx2mp3/asx2mp3 <somewhere-in-your-path>
 
-There is no proper cli, nor proper handling of output yet, but if you want
-to do a test run, usage is as follows.
+There is no proper cli, nor proper handling of output destination yet, but if
+you want to do a test run, usage is as follows.
 
 Usage:
 
