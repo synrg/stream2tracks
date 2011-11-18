@@ -1,0 +1,6 @@
+A script to download all mms streams from an asx container, transcode them
+all to mp3, tag them using metadata from the streams and rename them to
+filenames derived from the tags.
+
+Requires ruby, nokogiri, mplayer, ffmpeg, id3v2, lltag.
+
