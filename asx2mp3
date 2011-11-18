@@ -22,6 +22,7 @@ doc.css('ENTRY').each do |_|
 	_.css('AUTHOR').inner_text,
 	count
     )
+    curdir=Dir.pwd
     # TODO: use a thread pool (at least for heavy lifting: ffmpeg)
     # so we don't kill performance with too many concurrent threads.
     Thread.new do
@@ -31,15 +32,18 @@ doc.css('ENTRY').each do |_|
 	logfile=File.join tmpdir,'%02d.log' % [count]
 	File.open(shfile,'w') do |sh|
 	    sh.puts '#! /bin/sh'
-	    sh.puts 'mplayer -dumpstream -dumpfile %s %s' %
+	    sh.puts 'cd "%s"' % [curdir]
+	    sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s"' %
 	        [infile,entry.url]
-	    sh.puts 'ffmpeg -i %s %s' %
+	    sh.puts 'ffmpeg -i "%s" "%s"' %
 	        [infile,outfile]
 	    sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
 	        [outfile,entry.track,album,entry.title,entry.artist]
 	    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
-	    sh.puts 'cd "%s" ; lltag --yes --rename-sep "_" --rename "%s" "%s"' %
-	        [tmpdir,file_format,outfile]
+	    sh.puts 'rm "%s"' % [infile]
+	    sh.puts 'mv "%s" .' % [outfile] 
+	    sh.puts 'lltag --yes --rename-sep "_" --rename "%s" "%s"' %
+	        [file_format,File.basename(outfile)]
 	end
 	system 'sh "%s" >"%s" 2>&1' % [shfile,logfile]
     end

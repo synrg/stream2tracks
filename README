@@ -2,22 +2,30 @@ A script to download all mms streams from an asx container, transcode them
 all to mp3, tag them using metadata from the streams and rename them to
 filenames derived from the tags.
 
-This code is considered early alpha and therefore doesn't yet do anything
-useful at all.
+This code is considered early alpha and therefore is not guaranteed to do
+anything useful at all. But if the rough edges don't bother you, it's sort
+of usable already.
 
 Setup:
 
 $ sudo apt-get install git ruby ruby-nokogiri mplayer ffmpeg id3v2 lltag
 $ git clone git@github.com:synrg/asx2mp3.git
 
+Install:
+
+$ cp asx2mp3/asx2mp3 <somewhere-in-your-path>
+
 There is no proper cli, nor proper handling of output yet, but if you want
 to do a test run, usage is as follows.
 
 Usage:
 
-$ asx2mp3/asx2mp3 <asx-file-or-url>
-... wait until all threads finish (see https://github.com/synrg/asx2mp3/issues/1) ...
 $ mkdir -p <output-dir>
-$ mv /tmp/asx2mp3*/*.mp3 <output-dir>
-$ rm -rf /tmp/asx2mp3*
+$ cd <output-dir>
+$ asx2mp3 <asx-file-or-url>
+
+Due to https://github.com/synrg/asx2mp3/issues/1, the script will exit
+immediately instead of waiting for all threads to finish. When the threads
+all finally do finish, the output will appear in the current directory.
+Just use 'top' or 'ps' and wait until it all settles down.
 
