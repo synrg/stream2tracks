@@ -1,9 +1,7 @@
-- include title of whole asx in tags
+- output to a permanent location
 - support output formats other than mp3 (flac, ogg)
 - support input formats other than asx (must support titles for tagging)
 - rename script (again) indicating it is broader than just asx & mp3
-- rename files to sensible (and permanent) names
-  - lltag? perl-based & supports renaming (replaces id3v2) & supports ogg/flac
 - some sort of cmdline interface
 - fewer direct calls to system(), more natively handled things
   - reduce dependencies to a manageable set

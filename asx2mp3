@@ -10,7 +10,9 @@ input_file=ARGV.shift
 tmpdir=Dir.mktmpdir('asx2mp3')
 
 doc=Nokogiri::XML(open input_file)
-title=doc.css('TITLE')[0].inner_text
+album_node=doc.css('ASX>TITLE')[0]
+album=title_node.inner_text if album_node
+
 count=0
 doc.css('ENTRY').each do |_|
     count+=1
@@ -21,5 +23,7 @@ doc.css('ENTRY').each do |_|
     outfile=File.join(tmpdir,'%02d.mp3' % [count])
     system('mplayer -dumpstream -dumpfile %s %s' % [infile,entry.url])
     system('ffmpeg -i %s %s' % [infile,outfile])
-    system('id3v2 "%s" -T %i -t "%s" -a "%s"' % [outfile,entry.track,entry.title,entry.artist])
+    system('id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' % [outfile,entry.track,album,entry.title,entry.artist])
+    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
+    system('cd "%s" ; lltag --yes --rename-sep "_" --rename "%s" "%s"' % [tmpdir,file_format,outfile])
 end
