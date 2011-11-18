@@ -7,23 +7,42 @@ require 'pp'
 
 class Entry < Struct.new(:title,:url,:artist,:track) ; end
 input_file=ARGV.shift
-tmpdir=Dir.mktmpdir('asx2mp3')
+tmpdir=Dir.mktmpdir('asx2mp3_')
 
 doc=Nokogiri::XML(open input_file)
 album_node=doc.css('ASX>TITLE')[0]
-album=title_node.inner_text if album_node
+album=album_node.inner_text if album_node
 
 count=0
 doc.css('ENTRY').each do |_|
     count+=1
-    entry=Entry.new _.css('TITLE').inner_text,_.css('REF')[0]['HREF'],_.css('AUTHOR').inner_text,count
-    puts "Processing: "
-    pp entry
-    infile=File.join(tmpdir,'%02d.wmv' % [count])
-    outfile=File.join(tmpdir,'%02d.mp3' % [count])
-    system('mplayer -dumpstream -dumpfile %s %s' % [infile,entry.url])
-    system('ffmpeg -i %s %s' % [infile,outfile])
-    system('id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' % [outfile,entry.track,album,entry.title,entry.artist])
-    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
-    system('cd "%s" ; lltag --yes --rename-sep "_" --rename "%s" "%s"' % [tmpdir,file_format,outfile])
+    entry=Entry.new(
+	_.css('TITLE').inner_text,
+	_.css('REF')[0]['HREF'],
+	_.css('AUTHOR').inner_text,
+	count
+    )
+    # TODO: use a thread pool (at least for heavy lifting: ffmpeg)
+    # so we don't kill performance with too many concurrent threads.
+    Thread.new do
+	infile= File.join tmpdir,'%02d.wmv' % [count]
+	outfile=File.join tmpdir,'%02d.mp3' % [count]
+	shfile= File.join tmpdir,'%02d.sh'  % [count]
+	logfile=File.join tmpdir,'%02d.log' % [count]
+	File.open(shfile,'w') do |sh|
+	    sh.puts '#! /bin/sh'
+	    sh.puts 'mplayer -dumpstream -dumpfile %s %s' %
+	        [infile,entry.url]
+	    sh.puts 'ffmpeg -i %s %s' %
+	        [infile,outfile]
+	    sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
+	        [outfile,entry.track,album,entry.title,entry.artist]
+	    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
+	    sh.puts 'cd "%s" ; lltag --yes --rename-sep "_" --rename "%s" "%s"' %
+	        [tmpdir,file_format,outfile]
+	end
+	system 'sh "%s" >"%s" 2>&1' % [shfile,logfile]
+    end
 end
+Thread.list{|t|t.join}
+
