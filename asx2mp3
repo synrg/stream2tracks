@@ -5,9 +5,12 @@ require 'nokogiri'
 require 'tmpdir'
 require 'pp'
 
+program_name=File.basename $0
+output_type=program_name.sub(/^asx2/,'')
+
 class Entry < Struct.new(:title,:url,:artist,:track) ; end
 input_file=ARGV.shift
-tmpdir=Dir.mktmpdir('asx2mp3_')
+tmpdir=Dir.mktmpdir(program_name+'_')
 
 doc=Nokogiri::XML(open input_file)
 album_node=doc.css('ASX>TITLE')[0]
@@ -27,7 +30,7 @@ doc.css('ENTRY').each do |_|
     # so we don't kill performance with too many concurrent threads.
     Thread.new do
 	infile= File.join tmpdir,'%02d.wmv' % [count]
-	outfile=File.join tmpdir,'%02d.mp3' % [count]
+	outfile=File.join tmpdir,'%02d.%s' % [count,output_type]
 	shfile= File.join tmpdir,'%02d.sh'  % [count]
 	logfile=File.join tmpdir,'%02d.log' % [count]
 	File.open(shfile,'w') do |sh|
