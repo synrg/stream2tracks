@@ -13,7 +13,10 @@ $ git clone git@github.com:synrg/asx2mp3.git
 
 Install:
 
-$ cp asx2mp3/asx2mp3 <somewhere-in-your-path>
+$ cd asx2mp3
+$ cp asx2mp3 ~/bin
+$ cd ~/bin
+$ ln -s asx2mp3 asx2ogg
 
 There is no proper cli, nor proper handling of output destination yet, but if
 you want to do a test run, usage is as follows.
