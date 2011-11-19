@@ -38,10 +38,18 @@ doc.css('ENTRY').each do |_|
 	    sh.puts 'cd "%s"' % [curdir]
 	    sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s"' %
 	        [infile,entry.url]
-	    sh.puts 'ffmpeg -i "%s" "%s"' %
-	        [infile,outfile]
-	    sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
-	        [outfile,entry.track,album,entry.title,entry.artist]
+	    case output_type
+	    when 'mp3'
+		sh.puts 'ffmpeg -i "%s" "%s"' %
+		    [infile,outfile]
+		sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
+		    [outfile,entry.track,album,entry.title,entry.artist]
+	    when 'ogg'
+		sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
+		    [infile,outfile]
+		sh.puts 'vorbiscomment -a -t "NUMBER=%02d" -t "ALBUM=%s" -t "TITLE=%s" -t "ARTIST=%s" "%s"' %
+		    [entry.track,album,entry.title,entry.artist,outfile]
+	    end
 	    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
 	    sh.puts 'rm "%s"' % [infile]
 	    sh.puts 'mv "%s" .' % [outfile] 
