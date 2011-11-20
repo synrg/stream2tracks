@@ -9,7 +9,7 @@ of usable already.
 Setup:
 
 $ sudo apt-get install git ruby ruby-nokogiri mplayer ffmpeg id3v2 lltag vorbis-tools
-$ git clone git@github.com:synrg/asx2mp3.git
+$ git clone git://github.com/synrg/asx2mp3.git
 
 Install:
 
