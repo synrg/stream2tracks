@@ -17,47 +17,59 @@ album_node=doc.css('ASX>TITLE')[0]
 album=album_node.inner_text if album_node
 
 count=0
-doc.css('ENTRY').each do |_|
-    count+=1
-    entry=Entry.new(
-	_.css('TITLE').inner_text,
-	_.css('REF')[0]['HREF'],
-	_.css('AUTHOR').inner_text,
-	count
-    )
-    curdir=Dir.pwd
-    # TODO: use a thread pool (at least for heavy lifting: ffmpeg)
-    # so we don't kill performance with too many concurrent threads.
-    Thread.new do
-	infile= File.join tmpdir,'%02d.wmv' % [count]
-	outfile=File.join tmpdir,'%02d.%s' % [count,output_type]
-	shfile= File.join tmpdir,'%02d.sh'  % [count]
-	logfile=File.join tmpdir,'%02d.log' % [count]
-	File.open(shfile,'w') do |sh|
-	    sh.puts '#! /bin/sh'
-	    sh.puts 'cd "%s"' % [curdir]
-	    sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s"' %
-	        [infile,entry.url]
-	    case output_type
-	    when 'mp3'
-		sh.puts 'ffmpeg -i "%s" "%s"' %
-		    [infile,outfile]
-		sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
-		    [outfile,entry.track,album,entry.title,entry.artist]
-	    when 'ogg'
-		sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
-		    [infile,outfile]
-		sh.puts 'vorbiscomment -a -t "NUMBER=%02d" -t "ALBUM=%s" -t "TITLE=%s" -t "ARTIST=%s" "%s"' %
-		    [entry.track,album,entry.title,entry.artist,outfile]
-	    end
-	    file_format=album ? '%n-%A-%t' : '%n-%a-%t'
-	    sh.puts 'rm "%s"' % [infile]
-	    sh.puts 'mv "%s" .' % [outfile] 
-	    sh.puts 'lltag --yes --rename-sep "_" --rename "%s" "%s"' %
-	        [file_format,File.basename(outfile)]
+curdir=Dir.pwd
+get_sh_filename=File.join tmpdir,'get.sh'
+get_log_filename=File.join tmpdir,'get.log'
+entries=[]
+File.open(get_sh_filename,'w') do |sh|
+    sh.puts '#! /bin/sh'
+    sh.puts 'cd "%s"' % [curdir]
+    doc.css('ENTRY').each do |_|
+	count+=1
+	entry=Entry.new(
+	    _.css('TITLE').inner_text,
+	    _.css('REF')[0]['HREF'],
+	    _.css('AUTHOR').inner_text,
+	    count
+	)
+	input_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
+	sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
+	    [input_filename,entry.url]
+	entries << entry
+    end
+    # TODO: make it possible to start the processing pass as soon
+    # as each file download completes, rather than waiting for
+    # all of them to complete.
+    sh.puts 'wait'
+end
+system 'sh "%s" >"%s" 2>&1' % [get_sh_filename,get_log_filename]
+
+process_sh_filename=File.join tmpdir,'process.sh'
+process_log_filename=File.join tmpdir,'process.log'
+File.open(process_sh_filename,'w') do |sh|
+    sh.puts '#! /bin/sh'
+    sh.puts 'cd "%s"' % [curdir]
+    entries.each do |entry|
+	input_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
+	output_filename=File.join tmpdir,'%02d.%s' % [entry.track,output_type]
+	case output_type
+	when 'mp3'
+	    sh.puts 'ffmpeg -i "%s" "%s"' %
+		[input_filename,output_filename]
+	    sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
+		[output_filename,entry.track,album,entry.title,entry.artist]
+	when 'ogg'
+	    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
+		[input_filename,output_filename]
+	    sh.puts 'vorbiscomment -a -t "NUMBER=%02d" -t "ALBUM=%s" -t "TITLE=%s" -t "ARTIST=%s" "%s"' %
+		[entry.track,album,entry.title,entry.artist,output_filename]
 	end
-	system 'sh "%s" >"%s" 2>&1' % [shfile,logfile]
+	file_format=album ? '%n-%A-%t' : '%n-%a-%t'
+	sh.puts 'rm "%s"' % [input_filename]
+	sh.puts 'mv "%s" .' % [output_filename] 
+	sh.puts 'lltag --yes --rename-sep "_" --rename "%s" "%s"' %
+	    [file_format,File.basename(output_filename)]
     end
 end
-Thread.list{|t|t.join}
+system 'sh "%s" >"%s" 2>&1' % [process_sh_filename,process_log_filename]
 
