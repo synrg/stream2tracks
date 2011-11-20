@@ -29,8 +29,7 @@ $ asx2mp3 <asx-file-or-url>
    OR
 $ asx2ogg <asx-file-or-url>
 
-Due to https://github.com/synrg/asx2mp3/issues/1, the script will exit
-immediately instead of waiting for all threads to finish. When the threads
-all finally do finish, the output will appear in the current directory.
-Just use 'top' or 'ps' and wait until it all settles down.
+After some time the script will finish and all output will appear in the
+current directory. Look in /tmp/asx2mp3_* (or asx2ogg_*) if anything went
+wrong, as currently the temporary files are not cleaned up.
 
