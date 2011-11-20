@@ -6,30 +6,38 @@ This code is considered early alpha and therefore is not guaranteed to do
 anything useful at all. But if the rough edges don't bother you, it's sort
 of usable already.
 
-Setup:
+Download:
 
-$ sudo apt-get install git ruby ruby-nokogiri mplayer ffmpeg id3v2 lltag vorbis-tools
-$ git clone git://github.com/synrg/asx2mp3.git
+1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
+   install the equivalents.
+
+   $ sudo apt-get install git ruby ruby-nokogiri ruby-taglib2 mplayer ffmpeg
+
+2. Fetch the source.
+
+   $ git clone git://github.com/synrg/asx2mp3.git
 
 Install:
 
-$ cd asx2mp3
-$ cp asx2mp3 ~/bin
-$ cd ~/bin
-$ ln -s asx2mp3 asx2ogg
+   Assuming you have $HOME/bin in your PATH, install as follows:
 
-There is no proper cli, nor proper handling of output destination yet, but if
-you want to do a test run, usage is as follows.
+   $ cd asx2mp3
+   $ cp asx2mp3 ~/bin
+   $ cd ~/bin
+   $ ln -s asx2mp3 asx2ogg
+
+   There is no proper cli, nor proper handling of output destination yet, but
+   if you want to do a test run, usage is as follows.
 
 Usage:
 
-$ mkdir -p <output-dir>
-$ cd <output-dir>
-$ asx2mp3 <asx-file-or-url>
-   OR
-$ asx2ogg <asx-file-or-url>
+   $ mkdir -p <output-dir>
+   $ cd <output-dir>
+   $ asx2mp3 <asx-file-or-url>
+      OR
+   $ asx2ogg <asx-file-or-url>
 
-After some time the script will finish and all output will appear in the
-current directory. Look in /tmp/asx2mp3_* (or asx2ogg_*) if anything went
-wrong, as currently the temporary files are not cleaned up.
+   After some time, the script will finish and all output will appear in the
+   current directory. Look in /tmp/asx2mp3_* (or asx2ogg_*) if anything went
+   wrong, as currently the temporary files are not cleaned up.
 

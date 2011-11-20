@@ -3,16 +3,18 @@
 require 'open-uri'
 require 'nokogiri'
 require 'tmpdir'
-require 'pp'
+require 'taglib'
+require 'fileutils'
+include FileUtils
 
 program_name=File.basename $0
 output_type=program_name.sub(/^asx2/,'')
 
 class Entry < Struct.new(:title,:url,:artist,:track) ; end
-input_file=ARGV.shift
+input_filename=ARGV.shift
 tmpdir=Dir.mktmpdir(program_name+'_')
 
-doc=Nokogiri::XML(open input_file)
+doc=Nokogiri::XML(open input_filename)
 album_node=doc.css('ASX>TITLE')[0]
 album=album_node.inner_text if album_node
 
@@ -32,9 +34,9 @@ File.open(get_sh_filename,'w') do |sh|
 	    _.css('AUTHOR').inner_text,
 	    count
 	)
-	input_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
+	output_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
 	sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
-	    [input_filename,entry.url]
+	    [output_filename,entry.url]
 	entries << entry
     end
     # TODO: make it possible to start the processing pass as soon
@@ -56,20 +58,31 @@ File.open(process_sh_filename,'w') do |sh|
 	when 'mp3'
 	    sh.puts 'ffmpeg -i "%s" "%s"' %
 		[input_filename,output_filename]
-	    sh.puts 'id3v2 "%s" -T %i -A "%s" -t "%s" -a "%s"' %
-		[output_filename,entry.track,album,entry.title,entry.artist]
 	when 'ogg'
 	    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
 		[input_filename,output_filename]
-	    sh.puts 'vorbiscomment -a -t "NUMBER=%02d" -t "ALBUM=%s" -t "TITLE=%s" -t "ARTIST=%s" "%s"' %
-		[entry.track,album,entry.title,entry.artist,output_filename]
 	end
-	file_format=album ? '%n-%A-%t' : '%n-%a-%t'
 	sh.puts 'rm "%s"' % [input_filename]
 	sh.puts 'mv "%s" .' % [output_filename] 
-	sh.puts 'lltag --yes --rename-sep "_" --rename "%s" "%s"' %
-	    [file_format,File.basename(output_filename)]
     end
 end
 system 'sh "%s" >"%s" 2>&1' % [process_sh_filename,process_log_filename]
 
+entries.each do |entry|
+    input_filename='%02d.%s' % [entry.track,output_type]
+    tag=TagLib::File.new input_filename
+    tag.album  = album
+    tag.title  = entry.title
+    tag.artist = entry.artist
+    tag.track  = entry.track
+    tag.save
+
+    # TODO: make filename format configurable
+    output_filename='%02d-%s-%s.%s' % [entry.track,album ? album : entry.artist,entry.title,output_type]
+    # Strip characters that could cause problems for some target filesystems
+    output_filename.gsub!(/[:\/\\]/,' ')
+    # And reduce any blanks to underscores as a shell typing aid
+    output_filename.gsub!(/ +/,'_')
+
+    mv input_filename,output_filename
+end
