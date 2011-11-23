@@ -38,6 +38,6 @@ Usage:
    $ asx2ogg <asx-file-or-url>
 
    After some time, the script will finish and all output will appear in the
-   current directory. Look in /tmp/asx2mp3_* (or asx2ogg_*) if anything went
-   wrong, as currently the temporary files are not cleaned up.
+   current directory. Look in /tmp/s2t_* if anything went wrong, as currently
+   the temporary files are not cleaned up.
 

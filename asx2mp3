@@ -7,82 +7,108 @@ require 'taglib'
 require 'fileutils'
 include FileUtils
 
-program_name=File.basename $0
-output_type=program_name.sub(/^asx2/,'')
-
-class Entry < Struct.new(:title,:url,:artist,:track) ; end
-input_filename=ARGV.shift
-tmpdir=Dir.mktmpdir(program_name+'_')
-
-doc=Nokogiri::XML(open input_filename)
-album_node=doc.css('ASX>TITLE')[0]
-album=album_node.inner_text if album_node
-
-count=0
-curdir=Dir.pwd
-get_sh_filename=File.join tmpdir,'get.sh'
-get_log_filename=File.join tmpdir,'get.log'
-entries=[]
-File.open(get_sh_filename,'w') do |sh|
-    sh.puts '#! /bin/sh'
-    sh.puts 'cd "%s"' % [curdir]
-    doc.css('ENTRY').each do |_|
-	count+=1
-	entry=Entry.new(
-	    _.css('TITLE').inner_text,
-	    _.css('REF')[0]['HREF'],
-	    _.css('AUTHOR').inner_text,
-	    count
-	)
-	output_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
-	sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
-	    [output_filename,entry.url]
-	entries << entry
-    end
-    # TODO: make it possible to start the processing pass as soon
-    # as each file download completes, rather than waiting for
-    # all of them to complete.
-    sh.puts 'wait'
-end
-system 'sh "%s" >"%s" 2>&1' % [get_sh_filename,get_log_filename]
-
-process_sh_filename=File.join tmpdir,'process.sh'
-process_log_filename=File.join tmpdir,'process.log'
-File.open(process_sh_filename,'w') do |sh|
-    sh.puts '#! /bin/sh'
-    sh.puts 'cd "%s"' % [curdir]
-    entries.each do |entry|
-	input_filename= File.join tmpdir,'%02d.wmv' % [entry.track]
-	output_filename=File.join tmpdir,'%02d.%s' % [entry.track,output_type]
-	case output_type
-	when 'mp3'
-	    sh.puts 'ffmpeg -i "%s" "%s"' %
-		[input_filename,output_filename]
-	when 'ogg'
-	    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
-		[input_filename,output_filename]
+class StreamTrackRipper
+    class Entry < Struct.new(:title,:url,:artist,:track) ; end
+    def initialize input_filename,output_type
+	@input_filename=input_filename
+	@output_type=output_type
+	@tmpdir=Dir.mktmpdir('s2t_')
+	@entries=[]
+	if block_given?
+	    get
+	    process
+	    tag
+	    yield
 	end
-	sh.puts 'rm "%s"' % [input_filename]
-	sh.puts 'mv "%s" .' % [output_filename] 
     end
 end
-system 'sh "%s" >"%s" 2>&1' % [process_sh_filename,process_log_filename]
 
-entries.each do |entry|
-    input_filename='%02d.%s' % [entry.track,output_type]
-    tag=TagLib::File.new input_filename
-    tag.album  = album
-    tag.title  = entry.title
-    tag.artist = entry.artist
-    tag.track  = entry.track
-    tag.save
+class ASXTrackRipper < StreamTrackRipper
+    def get
+	doc=Nokogiri::XML(open @input_filename)
+	album_node=doc.css('ASX>TITLE')[0]
+	@album=album_node.inner_text if album_node
 
-    # TODO: make filename format configurable
-    output_filename='%02d-%s-%s.%s' % [entry.track,album ? album : entry.artist,entry.title,output_type]
-    # Strip characters that could cause problems for some target filesystems
-    output_filename.gsub!(/[:\/\\]/,' ')
-    # And reduce any blanks to underscores as a shell typing aid
-    output_filename.gsub!(/ +/,'_')
+	count=0
+	curdir=Dir.pwd
+	get_sh_filename=File.join @tmpdir,'get.sh'
+	get_log_filename=File.join @tmpdir,'get.log'
+	File.open(get_sh_filename,'w') do |sh|
+	    sh.puts '#! /bin/sh'
+	    sh.puts 'cd "%s"' % [curdir]
+	    doc.css('ENTRY').each do |_|
+		count+=1
+		entry=Entry.new(
+		    _.css('TITLE').inner_text,
+		    _.css('REF')[0]['HREF'],
+		    _.css('AUTHOR').inner_text,
+		    count
+		)
+		output_filename= File.join @tmpdir,'%02d.wmv' % [entry.track]
+		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
+		    [output_filename,entry.url]
+		@entries << entry
+	    end
+	    # TODO: make it possible to start the processing pass as soon
+	    # as each file download completes, rather than waiting for
+	    # all of them to complete.
+	    sh.puts 'wait'
+	end
+	system 'sh "%s" >"%s" 2>&1' % [get_sh_filename,get_log_filename]
+    end
 
-    mv input_filename,output_filename
+    def process
+	process_sh_filename=File.join @tmpdir,'process.sh'
+	process_log_filename=File.join @tmpdir,'process.log'
+	curdir=Dir.pwd
+	File.open(process_sh_filename,'w') do |sh|
+	    sh.puts '#! /bin/sh'
+	    sh.puts 'cd "%s"' % [curdir]
+	    @entries.each do |entry|
+		input_filename= File.join @tmpdir,'%02d.wmv' % [entry.track]
+		output_filename=File.join @tmpdir,'%02d.%s' % [entry.track,@output_type]
+		case @output_type
+		when 'mp3'
+		    sh.puts 'ffmpeg -i "%s" "%s"' %
+			[input_filename,output_filename]
+		when 'ogg'
+		    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
+			[input_filename,output_filename]
+		end
+		sh.puts 'rm "%s"' % [input_filename]
+		sh.puts 'mv "%s" .' % [output_filename] 
+	    end
+	end
+	system 'sh "%s" >"%s" 2>&1' % [process_sh_filename,process_log_filename]
+    end
+
+    def tag
+	@entries.each do |entry|
+	    input_filename='%02d.%s' % [entry.track,@output_type]
+	    tag=TagLib::File.new input_filename
+	    tag.album  = @album
+	    tag.title  = entry.title
+	    tag.artist = entry.artist
+	    tag.track  = entry.track
+	    tag.save
+
+	    # TODO: make filename format configurable
+	    output_filename='%02d-%s-%s.%s' % [entry.track,@album ? @album : entry.artist,entry.title,@output_type]
+	    # Strip characters that could cause problems for some target filesystems
+	    output_filename.gsub!(/[:\/\\]/,' ')
+	    # And reduce any blanks to underscores as a shell typing aid
+	    output_filename.gsub!(/ +/,'_')
+
+	    mv input_filename,output_filename
+	end
+    end
 end
+
+# FIXME: refactor into proper CLI/argument parser:
+input_filename=ARGV.shift
+program_name=File.basename $0
+# FIXME: more intelligently determine output type:
+output_type=program_name.sub(/^..../,'')
+
+ASXTrackRipper.new(input_filename,output_type){}
+
