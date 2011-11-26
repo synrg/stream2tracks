@@ -8,3 +8,6 @@
 - put code under test
 - packaging (setup, gem, debian)
 - write a man page
+- serialize intermediate results and save to make it possible to
+  reprocess stream, picking up where we left off if the rip was
+  aborted
