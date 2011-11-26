@@ -7,13 +7,90 @@ require 'taglib'
 require 'fileutils'
 include FileUtils
 
+# A Stream is an abstraction of the input audio stream container that has
+# - a path, either a URI or filepath
+# - some metadata about the stream (Tags)
+# - some entries
+#
+# Tags are metadata about a stream, its entries or a Track
+#
+# A Track is an abstraction of a media file produced by accessing a Stream it contains
+# - the Stream it came from
+# - the stream_index to locate the track within the Stream
+# - some metadata about the track (Tags)
+# - the path where the media file is stored
+# - the format of media file
+
+class Tags < Hash ; end
+
+# TODO: perhaps delegate to tags via method_missing?
+class Track < Struct.new :stream,:stream_index,:tags,:path ; end
+
+# TODO: use this to augment track with format and anything else
+# required to produce a file from the track lifted out of the
+# stream, rather than carrying filenames around as local variables
+# and discarded afterwards.
+class TrackFile < Track
+    attr_accessor :format
+
+    def initialize *args
+	@format=args.pop
+	super *args
+    end
+end
+
+# An abstract class
+class Stream
+    attr_accessor :tags
+
+    def initialize path
+	@path=path
+	file=open(@path)
+	@raw=file.read
+	@tags=Tags.new
+    end
+
+    # To be implemented in the concrete subclass
+    def entries ; end
+
+    # To be implemented in the concrete subclass
+    def parse ; end
+end
+
+class ASXStream < Stream
+    def entries
+	@xml||=Nokogiri::XML(@raw)
+	@xml.css('ENTRY')
+    end
+
+    def parse
+	title=entries.css('ASX>TITLE')[0]
+	album=title.inner_text if title
+	@tags[:album]=album
+	count=0
+	tracks=[]
+	entries.each do |_|
+	    tags=@tags
+	    count+=1
+	    tags.merge!(
+		:title=>_.css('TITLE').inner_text,
+		:artist=>_.css('AUTHOR').inner_text,
+		:track=>count
+	    )
+	    track=Track.new self,count,tags,_.css('REF')[0]['HREF']
+	    tracks << track
+	end
+	tracks
+    end
+end
+
 class StreamTrackRipper
-    class Entry < Struct.new(:title,:url,:artist,:track) ; end
-    def initialize input_filename,output_type
-	@input_filename=input_filename
-	@output_type=output_type
+    def initialize stream,format
+	@stream=stream
+	@tracks=@stream.parse
+	@format=format
+	@curdir=Dir.pwd
 	@tmpdir=Dir.mktmpdir('s2t_')
-	@entries=[]
 	if block_given?
 	    get
 	    process
@@ -21,33 +98,18 @@ class StreamTrackRipper
 	    yield
 	end
     end
-end
 
-class ASXTrackRipper < StreamTrackRipper
     def get
-	doc=Nokogiri::XML(open @input_filename)
-	album_node=doc.css('ASX>TITLE')[0]
-	@album=album_node.inner_text if album_node
-
-	count=0
-	curdir=Dir.pwd
 	get_sh_filename=File.join @tmpdir,'get.sh'
 	get_log_filename=File.join @tmpdir,'get.log'
 	File.open(get_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
-	    sh.puts 'cd "%s"' % [curdir]
-	    doc.css('ENTRY').each do |_|
-		count+=1
-		entry=Entry.new(
-		    _.css('TITLE').inner_text,
-		    _.css('REF')[0]['HREF'],
-		    _.css('AUTHOR').inner_text,
-		    count
-		)
-		output_filename= File.join @tmpdir,'%02d.wmv' % [entry.track]
+	    sh.puts 'cd "%s"' % [@curdir]
+	    @tracks.each do |track|
+		tags=track.tags
+		output_filename= File.join @tmpdir,'%02d.wmv' % [tags[:track]]
 		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
-		    [output_filename,entry.url]
-		@entries << entry
+		    [output_filename,track.path]
 	    end
 	    # TODO: make it possible to start the processing pass as soon
 	    # as each file download completes, rather than waiting for
@@ -64,10 +126,11 @@ class ASXTrackRipper < StreamTrackRipper
 	File.open(process_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
 	    sh.puts 'cd "%s"' % [curdir]
-	    @entries.each do |entry|
-		input_filename= File.join @tmpdir,'%02d.wmv' % [entry.track]
-		output_filename=File.join @tmpdir,'%02d.%s' % [entry.track,@output_type]
-		case @output_type
+	    @tracks.each do |track|
+		tags=track.tags
+		input_filename= File.join @tmpdir,'%02d.wmv' % [tags[:track]]
+		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],@format]
+		case @format
 		when 'mp3'
 		    sh.puts 'ffmpeg -i "%s" "%s"' %
 			[input_filename,output_filename]
@@ -83,17 +146,22 @@ class ASXTrackRipper < StreamTrackRipper
     end
 
     def tag
-	@entries.each do |entry|
-	    input_filename='%02d.%s' % [entry.track,@output_type]
-	    tag=TagLib::File.new input_filename
-	    tag.album  = @album
-	    tag.title  = entry.title
-	    tag.artist = entry.artist
-	    tag.track  = entry.track
-	    tag.save
+	@tracks.each do |track|
+	    tags=track.tags
+	    input_filename='%02d.%s' % [tags[:track],@format]
+	    file=TagLib::File.new input_filename
+	    file.album  = tags[:album] if tags[:album]
+	    file.title  = tags[:title]
+	    file.artist = tags[:artist]
+	    file.track  = tags[:track]
+	    file.save
 
 	    # TODO: make filename format configurable
-	    output_filename='%02d-%s-%s.%s' % [entry.track,@album ? @album : entry.artist,entry.title,@output_type]
+	    output_filename='%02d-%s-%s.%s' %
+		[tags[:track],tags[:album] ?
+		    tags[:album] :
+		    tags[:artist],tags[:title],
+		@format]
 	    # Strip characters that could cause problems for some target filesystems
 	    output_filename.gsub!(/[:\/\\]/,' ')
 	    # And reduce any blanks to underscores as a shell typing aid
@@ -107,8 +175,7 @@ end
 # FIXME: refactor into proper CLI/argument parser:
 input_filename=ARGV.shift
 program_name=File.basename $0
-# FIXME: more intelligently determine output type:
-output_type=program_name.sub(/^..../,'')
+# FIXME: more intelligently determine output format:
+format=program_name.sub(/^..../,'')
 
-ASXTrackRipper.new(input_filename,output_type){}
-
+StreamTrackRipper.new(ASXStream.new(input_filename),format){}
