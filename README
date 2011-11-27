@@ -1,34 +1,35 @@
-A script to download all tracks from a stream container, transcode them all to
-the desired format, tag them using metadata from the streams and rename them to
-filenames derived from the tags.
+stream2tracks-
 
-Currently only asx streams are supported as input and formats that are
-supported by ffmpeg and taglib2 (e.g. ogg, flac, mp3) are supported as output.
+   A script to download all tracks from a stream container, transcode them all
+   to the desired format, tag them using metadata from the streams and rename
+   them to filenames derived from the tags.
 
-This code is considered early alpha and therefore is not guaranteed to do
-anything useful at all. But if the rough edges don't bother you, it's sort
-of usable already.
+   Currently only asx streams are supported as input and formats that are
+   supported by ffmpeg and taglib2 (e.g. ogg, flac, mp3) are supported as output.
+
+   This code is considered early alpha and therefore is not guaranteed to do
+   anything useful at all. But if the rough edges don't bother you, it's sort
+   of usable already.
 
 Download:
 
-1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
-   install the equivalents.
+   1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
+      install the equivalents.
 
-   $ sudo apt-get install git ruby ruby-nokogiri ruby-taglib2 mplayer ffmpeg
+      $ sudo apt-get install git ruby ruby-nokogiri ruby-taglib2 mplayer ffmpeg
 
-2. Fetch the source.
+      In addition, a POSIX shell and associated tools is assumed to be present
+      and in your path, so this may work with Cygwin or MSYS but is untested.
 
-   $ git clone git://github.com/synrg/stream2tracks.git
+   2. Fetch the source.
+
+      $ git clone git://github.com/synrg/stream2tracks.git
 
 Install:
 
-   Assuming you have $HOME/bin in your PATH, install as follows:
+   3. Just put the script in a directory included in your PATH, e.g.
 
-   $ cd stream2tracks
-   $ cp stream2tracks ~/bin
-
-   There is no proper cli, nor proper handling of output destination yet, but
-   if you want to do a test run, usage is as follows.
+      $ cp stream2tracks/stream2tracks ~/bin
 
 Usage:
 
@@ -40,3 +41,33 @@ Usage:
    current directory. Look in /tmp/s2t_* if anything went wrong, as currently
    the temporary files are not cleaned up.
 
+   The default output format is ogg, and I've tested ogg, mp3 and flac, though
+   any format supported by both ffmpeg and taglib2 should work. So, for
+   example, to output as mp3:
+
+   $ stream2tracks -f mp3 <asx-file-or-url>
+
+   There is an experimental 'multi' mode which downloads all tracks at once.
+   This may work if you have a broadband connection, but could cause problems
+   if you're on a slower link. e.g.
+
+   $ stream2tracks -m <asx-file-or-url>
+
+Where to find streams:
+
+   A number of radio sites archive concerts and other programs as asx streams.
+   I've tested the script with http://www.cbc.ca/radio2/cod so far. There may
+   be some variations in the formats and metadata wrapped in the streams, so
+   I would be happy to hear about your experience using this script with
+   other sites as well.
+
+Bugs:
+
+   Please file and track issues at the project site:
+
+      https://github.com/synrg/stream2tracks
+
+   The preferred way to contact me about bugs, including documentation bugs
+   or wishlists is through the issues system.
+
+Ben Armstrong <synrg@debian.org>
