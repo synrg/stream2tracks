@@ -191,7 +191,7 @@ options.format='ogg'
 options.multi=false
 
 OptionParser.new do |opts|
-    opts.on('-f','--format FORMAT','Convert tracks to FORMAT.') do |format|
+    opts.on('-f','--format FORMAT','Convert tracks to FORMAT (default %s).' % options.format) do |format|
 	options.format=format
     end
 
