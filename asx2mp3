@@ -7,37 +7,29 @@ require 'taglib'
 require 'fileutils'
 include FileUtils
 
-# A Stream is an abstraction of the input audio stream container that has
-# - a path, either a URI or filepath
+# A Stream is an abstraction of the input audio stream container that has:
+# - a path, either a URI or filename
 # - some metadata about the stream (Tags)
 # - some entries
 #
 # Tags are metadata about a stream, its entries or a Track
 #
-# A Track is an abstraction of a media file produced by accessing a Stream it contains
-# - the Stream it came from
-# - the stream_index to locate the track within the Stream
+# A Track is separate entry from a stream, containing:
 # - some metadata about the track (Tags)
-# - the path where the media file is stored
-# - the format of media file
+# - a URI
+#
+# A TrackFile is a file produced from a stream, containing:
+# - some metadata about the track (Tags)
+# - the filename
+# - the format of the file
 
 class Tags < Hash ; end
 
 # TODO: perhaps delegate to tags via method_missing?
-class Track < Struct.new :stream,:stream_index,:tags,:path ; end
+class Track < Struct.new :tags,:uri ; end
 
-# TODO: use this to augment track with format and anything else
-# required to produce a file from the track lifted out of the
-# stream, rather than carrying filenames around as local variables
-# and discarded afterwards.
-class TrackFile < Track
-    attr_accessor :format
+class TrackFile < Struct.new :tags,:filename,:format ; end
 
-    def initialize *args
-	@format=args.pop
-	super *args
-    end
-end
 
 # An abstract class
 class Stream
@@ -77,7 +69,7 @@ class ASXStream < Stream
 		:artist=>_.css('AUTHOR').inner_text,
 		:track=>count
 	    )
-	    track=Track.new self,count,tags,_.css('REF')[0]['HREF']
+	    track=Track.new tags,_.css('REF')[0]['HREF']
 	    tracks << track
 	end
 	tracks
@@ -92,90 +84,108 @@ class StreamTrackRipper
 	@curdir=Dir.pwd
 	@tmpdir=Dir.mktmpdir('s2t_')
 	if block_given?
-	    get
-	    process
-	    tag
+	    # TODO: support (re)processing selected tracks from any stage
+	    trackfiles=get @tracks
+	    trackfiles=convert trackfiles,@format
+	    trackfiles=tag trackfiles
+	    @trackfiles=rename trackfiles
 	    yield
 	end
+	# TODO: handle log files, report on any failures
     end
 
-    def get
-	get_sh_filename=File.join @tmpdir,'get.sh'
-	get_log_filename=File.join @tmpdir,'get.log'
-	File.open(get_sh_filename,'w') do |sh|
+    def get tracks
+	@get_sh_filename=File.join @tmpdir,'get.sh'
+	@get_log_filename=File.join @tmpdir,'get.log'
+	trackfiles=[]
+	File.open(@get_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
 	    sh.puts 'cd "%s"' % [@curdir]
-	    @tracks.each do |track|
+	    tracks.each do |track|
 		tags=track.tags
-		output_filename= File.join @tmpdir,'%02d.wmv' % [tags[:track]]
+		# TODO: support formats which may not be possible to determine
+		# from the file extension of the entry in the stream (using
+		# magic number from file itself).
+		format=File.extname(File.basename(track.uri)).sub(/^\./,'')
+		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],format]
 		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
-		    [output_filename,track.path]
+		    [output_filename,track.uri]
+		trackfiles << TrackFile.new(tags,output_filename,format)
 	    end
 	    # TODO: make it possible to start the processing pass as soon
 	    # as each file download completes, rather than waiting for
 	    # all of them to complete.
 	    sh.puts 'wait'
 	end
-	system 'sh "%s" >"%s" 2>&1' % [get_sh_filename,get_log_filename]
+	system 'sh "%s" >"%s" 2>&1' % [@get_sh_filename,@get_log_filename]
+	trackfiles
     end
 
-    def process
-	process_sh_filename=File.join @tmpdir,'process.sh'
-	process_log_filename=File.join @tmpdir,'process.log'
-	curdir=Dir.pwd
-	File.open(process_sh_filename,'w') do |sh|
+    def convert trackfiles,format
+	@convert_sh_filename=File.join @tmpdir,'convert.sh'
+	@convert_log_filename=File.join @tmpdir,'convert.log'
+	File.open(@convert_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
-	    sh.puts 'cd "%s"' % [curdir]
-	    @tracks.each do |track|
-		tags=track.tags
-		input_filename= File.join @tmpdir,'%02d.wmv' % [tags[:track]]
-		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],@format]
-		case @format
-		when 'mp3'
-		    sh.puts 'ffmpeg -i "%s" "%s"' %
-			[input_filename,output_filename]
+	    sh.puts 'cd "%s"' % [@curdir]
+	    trackfiles.each do |trackfile|
+		tags=trackfile.tags
+		input_filename=trackfile.filename
+		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],format]
+		case format
 		when 'ogg'
 		    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
 			[input_filename,output_filename]
+		else # e.g. mp3, flac
+		    sh.puts 'ffmpeg -i "%s" "%s"' %
+			[input_filename,output_filename]
 		end
 		sh.puts 'rm "%s"' % [input_filename]
-		sh.puts 'mv "%s" .' % [output_filename] 
+		trackfile.filename=output_filename
+		trackfile.format=format
 	    end
 	end
-	system 'sh "%s" >"%s" 2>&1' % [process_sh_filename,process_log_filename]
+	system 'sh "%s" >"%s" 2>&1' % [@convert_sh_filename,@convert_log_filename]
+	trackfiles
     end
 
-    def tag
-	@tracks.each do |track|
-	    tags=track.tags
-	    input_filename='%02d.%s' % [tags[:track],@format]
-	    file=TagLib::File.new input_filename
+    def tag trackfiles
+	trackfiles.each do |trackfile|
+	    tags=trackfile.tags
+	    file=TagLib::File.new trackfile.filename
 	    file.album  = tags[:album] if tags[:album]
 	    file.title  = tags[:title]
 	    file.artist = tags[:artist]
 	    file.track  = tags[:track]
 	    file.save
+	end
+	trackfiles
+    end
 
-	    # TODO: make filename format configurable
+    def rename trackfiles
+	trackfiles.each do |trackfile|
+	    tags=trackfile.tags
+	    input_filename=trackfile.filename
 	    output_filename='%02d-%s-%s.%s' %
 		[tags[:track],tags[:album] ?
 		    tags[:album] :
 		    tags[:artist],tags[:title],
-		@format]
+		trackfile.format]
 	    # Strip characters that could cause problems for some target filesystems
 	    output_filename.gsub!(/[:\/\\]/,' ')
 	    # And reduce any blanks to underscores as a shell typing aid
 	    output_filename.gsub!(/ +/,'_')
 
 	    mv input_filename,output_filename
+	    trackfile.filename=output_filename
 	end
+	trackfiles
     end
 end
 
 # FIXME: refactor into proper CLI/argument parser:
 input_filename=ARGV.shift
 program_name=File.basename $0
-# FIXME: more intelligently determine output format:
+# FIXME: more intelligently determine output format
 format=program_name.sub(/^..../,'')
 
 StreamTrackRipper.new(ASXStream.new(input_filename),format){}
