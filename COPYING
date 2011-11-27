@@ -1,6 +1,6 @@
-COPYING for asx2mp3
+COPYING for stream2tracks
 
-asx2mp3 - Convert asx stream to tagged and renamed mp3 files
+stream2tracks - Download stream as converted, tagged, renamed tracks
 
     Copyright (c) 2011 by Ben Armstrong <synrg@debian.org>
 

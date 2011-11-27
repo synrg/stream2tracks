@@ -1,5 +1,7 @@
 #! /usr/bin/env ruby
 
+require 'optparse'
+require 'ostruct'
 require 'open-uri'
 require 'nokogiri'
 require 'tmpdir'
@@ -77,6 +79,8 @@ class ASXStream < Stream
 end
 
 class StreamTrackRipper
+    Version=['0','0','1']
+
     def initialize stream,format
 	@stream=stream
 	@tracks=@stream.parse
@@ -182,10 +186,26 @@ class StreamTrackRipper
     end
 end
 
+options=OpenStruct.new
+options.format='ogg'
+
+OptionParser.new do |opts|
+    opts.on('-f','--format FORMAT','Convert tracks to FORMAT.') do |format|
+	options.format=format
+    end
+
+    opts.on_tail("-h", "--help", "Show this message") do
+        puts opts
+        exit
+    end
+
+    opts.on_tail("--version", "Show version") do
+        puts StreamTrackRipper::Version.join('.')
+        exit
+    end
+end.parse!
+
 # FIXME: refactor into proper CLI/argument parser:
 input_filename=ARGV.shift
-program_name=File.basename $0
-# FIXME: more intelligently determine output format
-format=program_name.sub(/^..../,'')
 
-StreamTrackRipper.new(ASXStream.new(input_filename),format){}
+StreamTrackRipper.new(ASXStream.new(input_filename),options.format){}

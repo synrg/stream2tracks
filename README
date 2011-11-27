@@ -1,6 +1,9 @@
-A script to download all mms streams from an asx container, transcode them
-all to mp3 (or ogg), tag them using metadata from the streams and rename them
-to filenames derived from the tags.
+A script to download all tracks from a stream container, transcode them all to
+the desired format, tag them using metadata from the streams and rename them to
+filenames derived from the tags.
+
+Currently only asx streams are supported as input and formats that are
+supported by ffmpeg and taglib2 (e.g. ogg, flac, mp3) are supported as output.
 
 This code is considered early alpha and therefore is not guaranteed to do
 anything useful at all. But if the rough edges don't bother you, it's sort
@@ -15,16 +18,14 @@ Download:
 
 2. Fetch the source.
 
-   $ git clone git://github.com/synrg/asx2mp3.git
+   $ git clone git://github.com/synrg/stream2tracks.git
 
 Install:
 
    Assuming you have $HOME/bin in your PATH, install as follows:
 
-   $ cd asx2mp3
-   $ cp asx2mp3 ~/bin
-   $ cd ~/bin
-   $ ln -s asx2mp3 asx2ogg
+   $ cd stream2tracks
+   $ cp stream2tracks ~/bin
 
    There is no proper cli, nor proper handling of output destination yet, but
    if you want to do a test run, usage is as follows.
@@ -33,9 +34,7 @@ Usage:
 
    $ mkdir -p <output-dir>
    $ cd <output-dir>
-   $ asx2mp3 <asx-file-or-url>
-      OR
-   $ asx2ogg <asx-file-or-url>
+   $ stream2tracks <asx-file-or-url>
 
    After some time, the script will finish and all output will appear in the
    current directory. Look in /tmp/s2t_* if anything went wrong, as currently
