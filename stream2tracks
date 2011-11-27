@@ -81,16 +81,16 @@ end
 class StreamTrackRipper
     Version=['0','0','1']
 
-    def initialize stream,format
+    def initialize stream,options
 	@stream=stream
 	@tracks=@stream.parse
-	@format=format
+	@options=options
 	@curdir=Dir.pwd
 	@tmpdir=Dir.mktmpdir('s2t_')
 	if block_given?
 	    # TODO: support (re)processing selected tracks from any stage
 	    trackfiles=get @tracks
-	    trackfiles=convert trackfiles,@format
+	    trackfiles=convert trackfiles,@options.format
 	    trackfiles=tag trackfiles
 	    @trackfiles=rename trackfiles
 	    yield
@@ -112,14 +112,14 @@ class StreamTrackRipper
 		# magic number from file itself).
 		format=File.extname(File.basename(track.uri)).sub(/^\./,'')
 		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],format]
-		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" &' %
-		    [output_filename,track.uri]
+		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" %s' %
+		    [output_filename,track.uri,@options.multi ? '&' : '']
 		trackfiles << TrackFile.new(tags,output_filename,format)
 	    end
 	    # TODO: make it possible to start the processing pass as soon
 	    # as each file download completes, rather than waiting for
 	    # all of them to complete.
-	    sh.puts 'wait'
+	    sh.puts 'wait' if @options.multi
 	end
 	system 'sh "%s" >"%s" 2>&1' % [@get_sh_filename,@get_log_filename]
 	trackfiles
@@ -188,10 +188,15 @@ end
 
 options=OpenStruct.new
 options.format='ogg'
+options.multi=false
 
 OptionParser.new do |opts|
     opts.on('-f','--format FORMAT','Convert tracks to FORMAT.') do |format|
 	options.format=format
+    end
+
+    opts.on('-m','--multi','Download multiple tracks at once (EXPERIMENTAL).') do
+	options.multi=true
     end
 
     opts.on_tail("-h", "--help", "Show this message") do
@@ -208,4 +213,4 @@ end.parse!
 # FIXME: refactor into proper CLI/argument parser:
 input_filename=ARGV.shift
 
-StreamTrackRipper.new(ASXStream.new(input_filename),options.format){}
+StreamTrackRipper.new(ASXStream.new(input_filename),options){}
