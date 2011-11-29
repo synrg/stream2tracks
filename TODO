@@ -1,5 +1,4 @@
 - support input formats other than asx (must support titles for tagging)
-- some sort of cmdline interface
 - fewer direct calls to system(), more natively handled things
   - reduce dependencies to a manageable set
   - provide abstractions around each pipeline stage to make it
