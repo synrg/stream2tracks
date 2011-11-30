@@ -3,14 +3,15 @@
 require 'optparse'
 require 'ostruct'
 require 'open-uri'
+require 'md5'
 require 'nokogiri'
-require 'tmpdir'
 require 'taglib'
 require 'fileutils'
 include FileUtils
 
 # A Stream is an abstraction of the input audio stream container that has:
 # - a path, either a URI or filename
+# - a key, uniquely identifying the stream
 # - some metadata about the stream (Tags)
 # - some entries
 #
@@ -35,7 +36,7 @@ class TrackFile < Struct.new :tags,:filename,:format ; end
 
 # An abstract class
 class Stream
-    attr_accessor :tags
+    attr_accessor :tags,:key
 
     def initialize path
 	@path=path
@@ -46,6 +47,10 @@ class Stream
 
     # To be implemented in the concrete subclass
     def entries ; end
+
+    def key
+	@key||=MD5.new(@raw).to_s
+    end
 
     # To be implemented in the concrete subclass
     def parse ; end
@@ -86,7 +91,8 @@ class StreamTrackRipper
 	@tracks=@stream.parse
 	@options=options
 	@curdir=Dir.pwd
-	@tmpdir=Dir.mktmpdir('s2t_')
+	@workdir=File.join(ENV['HOME'],'.cache','stream2tracks',@stream.key)
+	mkdir_p @workdir
 	if block_given?
 	    # TODO: support (re)processing selected tracks from any stage
 	    trackfiles=get @tracks
@@ -99,8 +105,8 @@ class StreamTrackRipper
     end
 
     def get tracks
-	@get_sh_filename=File.join @tmpdir,'get.sh'
-	@get_log_filename=File.join @tmpdir,'get.log'
+	@get_sh_filename=File.join @workdir,'get.sh'
+	@get_log_filename=File.join @workdir,'get.log'
 	trackfiles=[]
 	File.open(@get_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
@@ -111,7 +117,7 @@ class StreamTrackRipper
 		# from the file extension of the entry in the stream (using
 		# magic number from file itself).
 		format=File.extname(File.basename(track.uri)).sub(/^\./,'')
-		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],format]
+		output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
 		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" %s' %
 		    [output_filename,track.uri,@options.multi ? '&' : '']
 		trackfiles << TrackFile.new(tags,output_filename,format)
@@ -126,15 +132,15 @@ class StreamTrackRipper
     end
 
     def convert trackfiles,format
-	@convert_sh_filename=File.join @tmpdir,'convert.sh'
-	@convert_log_filename=File.join @tmpdir,'convert.log'
+	@convert_sh_filename=File.join @workdir,'convert.sh'
+	@convert_log_filename=File.join @workdir,'convert.log'
 	File.open(@convert_sh_filename,'w') do |sh|
 	    sh.puts '#! /bin/sh'
 	    sh.puts 'cd "%s"' % [@curdir]
 	    trackfiles.each do |trackfile|
 		tags=trackfile.tags
 		input_filename=trackfile.filename
-		output_filename=File.join @tmpdir,'%02d.%s' % [tags[:track],format]
+		output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
 		case format
 		when 'ogg'
 		    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
