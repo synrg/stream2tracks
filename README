@@ -38,8 +38,8 @@ Usage:
    $ stream2tracks <asx-file-or-url>
 
    After some time, the script will finish and all output will appear in the
-   current directory. Look in /tmp/s2t_* if anything went wrong, as currently
-   the temporary files are not cleaned up.
+   current directory. Look in $HOME/.cache/stream2tracks/* if anything went
+   wrong, as currently the working files are not cleaned up.
 
    The default output format is ogg, and I've tested ogg, mp3 and flac, though
    any format supported by both ffmpeg and taglib2 should work. So, for
