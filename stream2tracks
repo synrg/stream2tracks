@@ -69,7 +69,7 @@ class ASXStream < Stream
 	count=0
 	tracks=[]
 	entries.each do |_|
-	    tags=@tags
+	    tags=@tags.dup
 	    count+=1
 	    tags.merge!(
 		:title=>_.css('TITLE').inner_text,
