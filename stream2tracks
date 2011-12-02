@@ -3,7 +3,7 @@
 require 'optparse'
 require 'ostruct'
 require 'open-uri'
-require 'md5'
+require 'digest/md5'
 require 'nokogiri'
 require 'taglib'
 require 'fileutils'
@@ -49,7 +49,7 @@ class Stream
     def entries ; end
 
     def key
-	@key||=MD5.new(@raw).to_s
+	@key||=Digest::MD5.new.hexdigest(@raw).to_s
     end
 
     # To be implemented in the concrete subclass
