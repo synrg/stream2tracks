@@ -1,4 +1,4 @@
-#! /usr/bin/env ruby
+#! /usr/bin/ruby1.9.1
 
 require 'optparse'
 require 'ostruct'
@@ -83,6 +83,18 @@ class ASXStream < Stream
     end
 end
 
+# A WatchedProcess is a process producing output which can be watched
+# to indicate progress so far.
+class WatchedProcess
+    attr_accessor :pid,:out,:out_write
+    # TODO: support actually watching the process
+    def initialize cmd
+	@out,out_write=IO.pipe
+	@pid=spawn cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
+	yield self if block_given?
+    end
+end
+
 class StreamTrackRipper
     Version=['0','0','1']
 
@@ -105,29 +117,20 @@ class StreamTrackRipper
     end
 
     def get tracks
-	@get_sh_filename=File.join @workdir,'get.sh'
-	@get_log_filename=File.join @workdir,'get.log'
 	trackfiles=[]
-	File.open(@get_sh_filename,'w') do |sh|
-	    sh.puts '#! /bin/sh'
-	    sh.puts 'cd "%s"' % [@curdir]
-	    tracks.each do |track|
-		tags=track.tags
-		# TODO: support formats which may not be possible to determine
-		# from the file extension of the entry in the stream (using
-		# magic number from file itself).
-		format=File.extname(File.basename(track.uri)).sub(/^\./,'')
-		output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
-		sh.puts 'mplayer -dumpstream -dumpfile "%s" "%s" %s' %
-		    [output_filename,track.uri,@options.multi ? '&' : '']
-		trackfiles << TrackFile.new(tags,output_filename,format)
-	    end
-	    # TODO: make it possible to start the processing pass as soon
-	    # as each file download completes, rather than waiting for
-	    # all of them to complete.
-	    sh.puts 'wait' if @options.multi
+	processes=[]
+	tracks.each do |track|
+	    tags=track.tags
+	    # TODO: support formats which may not be possible to determine
+	    # from the file extension of the entry in the stream (using
+	    # magic number from file itself).
+	    format=File.extname(File.basename(track.uri)).sub(/^\./,'')
+	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
+	    processes << (_=WatchedProcess.new('mimms -r "%s" "%s"' % [track.uri,output_filename]))
+	    trackfiles << TrackFile.new(tags,output_filename,format)
+	    Process.wait unless @options.multi
 	end
-	system 'sh "%s" >"%s" 2>&1' % [@get_sh_filename,@get_log_filename]
+	Process.waitall if @options.multi
 	trackfiles
     end
 
