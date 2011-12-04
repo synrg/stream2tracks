@@ -18,9 +18,6 @@ Download:
 
       $ sudo apt-get install git ruby1.9.3 ruby-nokogiri ruby-taglib2 mimms ffmpeg
 
-      In addition, a POSIX shell and associated tools is assumed to be present
-      and in your path, so this may work with Cygwin or MSYS but is untested.
-
    2. Fetch the source.
 
       $ git clone git://github.com/synrg/stream2tracks.git
