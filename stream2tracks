@@ -86,16 +86,27 @@ end
 # A WatchedProcess is a process producing output which can be watched
 # to indicate progress so far.
 class WatchedProcess
-    attr_accessor :pid,:out
-    # TODO: support actually watching the process
     def initialize cmd
 	@out,out_write=IO.pipe
 	@pid=spawn cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
+	out_write.close
 	yield self if block_given?
+    end
+
+    # TODO: instead of exposing these low level methods on @out and making the
+    # caller do the work of buffering/scanning/presenting output, encapsulate
+    # the calls and provide some higher level methods to monitor progress.
+    def readpartial *args
+	@out.readpartial *args
+    end
+
+    def eof?
+	@out.eof?
     end
 end
 
 class StreamTrackRipper
+    MAX_READ_LEN=1024 # completely arbitrary
     Version=['0','0','1']
 
     def initialize stream,options
@@ -126,11 +137,32 @@ class StreamTrackRipper
 	    # magic number from file itself).
 	    format=File.extname(File.basename(track.uri)).sub(/^\./,'')
 	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
-	    processes << (_=WatchedProcess.new('mimms -r "%s" "%s"' % [track.uri,output_filename]))
+	    if File.exists? output_filename
+		$stderr.puts "I: partial output found; cannot resume, so discarding: %s" % output_filename if @options.debug
+		rm output_filename
+	    end
+	    processes << (_=WatchedProcess.new('mimms "%s" "%s"' % [track.uri,output_filename]))
 	    trackfiles << TrackFile.new(tags,output_filename,format)
-	    Process.wait unless @options.multi
+	    unless @options.multi
+		until _.eof?
+		    output=_.readpartial MAX_READ_LEN rescue EOFError
+		    $stderr.print output if @options.debug and output
+		end
+	        Process.wait # Probably not necessary
+	    end
 	end
-	Process.waitall if @options.multi
+	if @options.multi
+	    all_done=false
+	    until all_done do
+		all_done=true
+		processes.each do |_|
+		    output=_.readpartial MAX_READ_LEN rescue EOFError
+		    $stderr.print output if @options.debug
+		    all_done=false unless _.eof?
+		end
+	    end
+	    Process.waitall
+	end
 	trackfiles
     end
 
@@ -193,8 +225,13 @@ end
 options=OpenStruct.new
 options.format='ogg'
 options.multi=false
+options.debug=false
 
 OptionParser.new do |opts|
+    opts.on('-d','--debug [LEVEL]','Output debugging info.') do
+	options.debug=true
+    end
+
     opts.on('-f','--format FORMAT','Convert tracks to FORMAT (default %s).' % options.format) do |format|
 	options.format=format
     end
