@@ -86,7 +86,7 @@ end
 # A WatchedProcess is a process producing output which can be watched
 # to indicate progress so far.
 class WatchedProcess
-    attr_accessor :pid,:out,:out_write
+    attr_accessor :pid,:out
     # TODO: support actually watching the process
     def initialize cmd
 	@out,out_write=IO.pipe
@@ -135,29 +135,24 @@ class StreamTrackRipper
     end
 
     def convert trackfiles,format
-	@convert_sh_filename=File.join @workdir,'convert.sh'
-	@convert_log_filename=File.join @workdir,'convert.log'
-	File.open(@convert_sh_filename,'w') do |sh|
-	    sh.puts '#! /bin/sh'
-	    sh.puts 'cd "%s"' % [@curdir]
-	    trackfiles.each do |trackfile|
-		tags=trackfile.tags
-		input_filename=trackfile.filename
-		output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
-		case format
-		when 'ogg'
-		    sh.puts 'ffmpeg -i "%s" -acodec libvorbis "%s"' %
-			[input_filename,output_filename]
-		else # e.g. mp3, flac
-		    sh.puts 'ffmpeg -i "%s" "%s"' %
-			[input_filename,output_filename]
-		end
-		sh.puts 'rm "%s"' % [input_filename]
-		trackfile.filename=output_filename
-		trackfile.format=format
+	trackfiles.each do |trackfile|
+	    tags=trackfile.tags
+	    input_filename=trackfile.filename
+	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
+	    cmd=case format
+	    when 'ogg'
+		'ffmpeg -i "%s" -acodec libvorbis "%s"' %
+		    [input_filename,output_filename]
+	    else # e.g. mp3, flac
+		'ffmpeg -i "%s" "%s"' %
+		    [input_filename,output_filename]
 	    end
+	    WatchedProcess.new cmd
+	    Process.wait
+	    rm input_filename
+	    trackfile.filename=output_filename
+	    trackfile.format=format
 	end
-	system 'sh "%s" >"%s" 2>&1' % [@convert_sh_filename,@convert_log_filename]
 	trackfiles
     end
 
