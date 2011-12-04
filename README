@@ -16,7 +16,7 @@ Download:
    1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
       install the equivalents.
 
-      $ sudo apt-get install git ruby ruby-nokogiri ruby-taglib2 mimms ffmpeg
+      $ sudo apt-get install git ruby1.9.3 ruby-nokogiri ruby-taglib2 mimms ffmpeg
 
       In addition, a POSIX shell and associated tools is assumed to be present
       and in your path, so this may work with Cygwin or MSYS but is untested.
