@@ -228,7 +228,7 @@ options.multi=false
 options.debug=false
 
 OptionParser.new do |opts|
-    opts.on('-d','--debug [LEVEL]','Output debugging info.') do
+    opts.on('-d','--debug','Output debugging info.') do
 	options.debug=true
     end
 
