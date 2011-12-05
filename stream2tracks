@@ -4,6 +4,7 @@ require 'optparse'
 require 'ostruct'
 require 'open-uri'
 require 'digest/md5'
+require 'logger'
 require 'nokogiri'
 require 'taglib'
 require 'fileutils'
@@ -58,12 +59,11 @@ end
 
 class ASXStream < Stream
     def entries
-	@xml||=Nokogiri::XML(@raw)
-	@xml.css('ENTRY')
+	xml.css('ENTRY')
     end
 
     def parse
-	title=entries.css('ASX>TITLE')[0]
+	title=xml.css('ASX>TITLE')[0]
 	album=title.inner_text if title
 	@tags[:album]=album
 	count=0
@@ -80,6 +80,12 @@ class ASXStream < Stream
 	    tracks << track
 	end
 	tracks
+    end
+
+    private
+
+    def xml
+	@xml||=Nokogiri::XML(@raw)
     end
 end
 
@@ -125,8 +131,13 @@ class StreamTrackRipper
 
     def initialize stream,options
 	@stream=stream
-	@tracks=@stream.parse
 	@options=options
+	@log=Logger.new @options.log=='-' ? $stderr : @options.log if @options.log
+	@tracks=@stream.parse
+	@log.info 'Processing stream: %s' % @stream.key if @log
+	@log.info 'Found %i tracks' % @tracks.count if @log
+	album=@stream.tags[:album]
+	@log.info 'Found stream title: %s' % album if @log and album
 	@curdir=Dir.pwd
 	@workdir=File.join(ENV['HOME'],'.cache','stream2tracks',@stream.key)
 	mkdir_p @workdir
@@ -138,7 +149,7 @@ class StreamTrackRipper
 	    @trackfiles=rename trackfiles
 	    yield
 	end
-	# TODO: handle log files, report on any failures
+	# TODO: report on any failures
     end
 
     def get tracks
@@ -150,12 +161,15 @@ class StreamTrackRipper
 	    # from the file extension of the entry in the stream (using
 	    # magic number from file itself).
 	    format=File.extname(File.basename(track.uri)).sub(/^\./,'')
+	    @log.info 'Track tags: %s' % tags.inspect if @log
 	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
 	    if File.exists? output_filename
-		$stderr.puts "I: partial output found; cannot resume, so discarding: %s" % output_filename if @options.debug
+		@log.info 'Discarding old partial output: %s' % output_filename if @options.log
 		rm output_filename
 	    end
-	    processes << (_=WatchedProcess.new('mimms "%s" "%s"' % [track.uri,output_filename]))
+	    cmd='mimms "%s" "%s"' % [track.uri,output_filename]
+	    @log.info 'Spawning: %s' % cmd if @log
+	    processes << (_=WatchedProcess.new(cmd))
 	    trackfiles << TrackFile.new(tags,output_filename,format)
 	    WatchedProcess.watch _,@options unless @options.multi
 	end
@@ -176,6 +190,7 @@ class StreamTrackRipper
 		'ffmpeg -i "%s" "%s"' %
 		    [input_filename,output_filename]
 	    end
+	    @log.info 'Spawning: %s' % cmd if @log
 	    WatchedProcess.watch(WatchedProcess.new(cmd),@options)
 	    rm input_filename
 	    trackfile.filename=output_filename
@@ -186,6 +201,7 @@ class StreamTrackRipper
 
     def tag trackfiles
 	trackfiles.each do |trackfile|
+	    @log.info 'Tagging: %s' % trackfile.filename if @log
 	    tags=trackfile.tags
 	    file=TagLib::File.new trackfile.filename
 	    file.album  = tags[:album] if tags[:album]
@@ -211,6 +227,7 @@ class StreamTrackRipper
 	    # And reduce any blanks to underscores as a shell typing aid
 	    output_filename.gsub!(/ +/,'_')
 
+	    @log.info 'Renaming: %s to: %s' % [input_filename,output_filename] if @log
 	    mv input_filename,output_filename
 	    trackfile.filename=output_filename
 	end
@@ -222,6 +239,7 @@ options=OpenStruct.new
 options.format='ogg'
 options.multi=false
 options.debug=false
+options.log=nil
 
 OptionParser.new do |opts|
     opts.on('-d','--debug','Output debugging info.') do
@@ -232,16 +250,20 @@ OptionParser.new do |opts|
 	options.format=format
     end
 
+    opts.on('-l','--log FILENAME','Log to FILENAME (or - for standard error).') do |filename|
+	options.log=filename
+    end
+
     opts.on('-m','--multi','Download multiple tracks at once (EXPERIMENTAL).') do
 	options.multi=true
     end
 
-    opts.on_tail("-h", "--help", "Show this message") do
+    opts.on_tail('-h', '--help', 'Show this message.') do
         puts opts
         exit
     end
 
-    opts.on_tail("--version", "Show version") do
+    opts.on_tail('--version', 'Show version.') do
         puts StreamTrackRipper::Version.join('.')
         exit
     end
