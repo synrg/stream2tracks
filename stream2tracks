@@ -86,6 +86,8 @@ end
 # A WatchedProcess is a process producing output which can be watched
 # to indicate progress so far.
 class WatchedProcess
+    MAX_READ_LEN=1024 # completely arbitrary
+
     def initialize cmd
 	@out,out_write=IO.pipe
 	@pid=spawn cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
@@ -93,20 +95,32 @@ class WatchedProcess
 	yield self if block_given?
     end
 
-    # TODO: instead of exposing these low level methods on @out and making the
-    # caller do the work of buffering/scanning/presenting output, encapsulate
-    # the calls and provide some higher level methods to monitor progress.
-    def readpartial *args
-	@out.readpartial *args
+    def self.watch processes,options
+	if Array===processes
+	    all_done=false
+	    until all_done do
+		all_done=true
+		processes.each do |_|
+		    eof=_.watch options
+		    all_done=false unless eof
+		end
+	    end
+	else
+	    eof=processes.watch options until eof
+	end
     end
 
-    def eof?
+    def watch options
+	@buffer||=''
+	output=@out.readpartial MAX_READ_LEN rescue EOFError
+	@buffer << output if output
+	# TODO: buffer.scan ... for progress
+	$stderr.print output if options.debug and output
 	@out.eof?
     end
 end
 
 class StreamTrackRipper
-    MAX_READ_LEN=1024 # completely arbitrary
     Version=['0','0','1']
 
     def initialize stream,options
@@ -143,26 +157,9 @@ class StreamTrackRipper
 	    end
 	    processes << (_=WatchedProcess.new('mimms "%s" "%s"' % [track.uri,output_filename]))
 	    trackfiles << TrackFile.new(tags,output_filename,format)
-	    unless @options.multi
-		until _.eof?
-		    output=_.readpartial MAX_READ_LEN rescue EOFError
-		    $stderr.print output if @options.debug and output
-		end
-	        Process.wait # Probably not necessary
-	    end
+	    WatchedProcess.watch _,@options unless @options.multi
 	end
-	if @options.multi
-	    all_done=false
-	    until all_done do
-		all_done=true
-		processes.each do |_|
-		    output=_.readpartial MAX_READ_LEN rescue EOFError
-		    $stderr.print output if @options.debug
-		    all_done=false unless _.eof?
-		end
-	    end
-	    Process.waitall
-	end
+	WatchedProcess.watch processes,@options if @options.multi
 	trackfiles
     end
 
@@ -179,8 +176,7 @@ class StreamTrackRipper
 		'ffmpeg -i "%s" "%s"' %
 		    [input_filename,output_filename]
 	    end
-	    WatchedProcess.new cmd
-	    Process.wait
+	    WatchedProcess.watch(WatchedProcess.new(cmd),@options)
 	    rm input_filename
 	    trackfile.filename=output_filename
 	    trackfile.format=format
