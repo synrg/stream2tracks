@@ -117,7 +117,11 @@ class WatchedProcess
 		processes.each do |_|
 		    eof,cur,tot=_.watch options
 		    if cur
-			current+=cur
+			# The reported totals may not be accurate. Rather
+			# than recompute the actual total when the track
+			# finishes, just accumulate the reported total
+			# to improve accuracy of the progress bar.
+			current+=eof ? tot : cur
 			total+=tot
 		    end
 		    all_done=false unless eof
