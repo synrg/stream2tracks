@@ -7,6 +7,7 @@ require 'digest/md5'
 require 'logger'
 require 'nokogiri'
 require 'taglib'
+require 'progressbar'
 require 'fileutils'
 include FileUtils
 
@@ -102,27 +103,48 @@ class WatchedProcess
     end
 
     def self.watch processes,options
+	@bar=nil
+	update_bar=proc do |current,total|
+	    @bar=ProgressBar.new('Downloading',total) if total!=@old_total or @bar.nil?
+	    @old_total=total
+	    @bar.set current
+	end
 	if Array===processes
 	    all_done=false
 	    until all_done do
 		all_done=true
+		current,@old_total,total=0,0,0
 		processes.each do |_|
-		    eof=_.watch options
+		    eof,cur,tot=_.watch options
+		    if cur
+			current+=cur
+			total+=tot
+		    end
 		    all_done=false unless eof
 		end
+		update_bar[current,total] if total>0
 	    end
 	else
-	    eof=processes.watch options until eof
+	    eof=nil
+	    current,@old_total,total=0,0,0
+	    until eof
+		eof,current,total=processes.watch options
+		update_bar[current,total] if current && total>0
+	    end
 	end
+	@bar.finish if @bar
     end
 
     def watch options
+	progress=options.progress
 	@buffer||=''
 	output=@out.readpartial MAX_READ_LEN rescue EOFError
 	@buffer << output if output
-	# TODO: buffer.scan ... for progress
 	$stderr.print output if options.debug and output
-	@out.eof?
+	if progress
+	    current,total=progress.call(@buffer)
+	end
+	[@out.eof?,current,total]
     end
 end
 
@@ -152,9 +174,21 @@ class StreamTrackRipper
 	# TODO: report on any failures
     end
 
+    TO_BYTES={'GB'=>1000000000,'MB'=>1000000,'KB'=>1000}
     def get tracks
 	trackfiles=[]
 	processes=[]
+	options=@options.dup
+	unless options.quiet
+	    options.progress=proc do |output|
+		current,total=if output.scan(/(\d+\.\d+) (.B) \/ (\d+\.\d+) (.B)/m).last
+		    cur,cur_unit,tot,tot_unit=$1,$2,$3,$4
+		    [(cur.to_f*TO_BYTES[cur_unit.upcase]).to_i,
+		     (tot.to_f*TO_BYTES[tot_unit.upcase]).to_i]
+		end
+		[current,total]
+	    end
+	end
 	tracks.each do |track|
 	    tags=track.tags
 	    # TODO: support formats which may not be possible to determine
@@ -171,9 +205,9 @@ class StreamTrackRipper
 	    @log.info 'Spawning: %s' % cmd if @log
 	    processes << (_=WatchedProcess.new(cmd))
 	    trackfiles << TrackFile.new(tags,output_filename,format)
-	    WatchedProcess.watch _,@options unless @options.multi
+	    WatchedProcess.watch _,options unless @options.multi
 	end
-	WatchedProcess.watch processes,@options if @options.multi
+	WatchedProcess.watch processes,options if @options.multi
 	trackfiles
     end
 
@@ -256,6 +290,10 @@ OptionParser.new do |opts|
 
     opts.on('-m','--multi','Download multiple tracks at once (EXPERIMENTAL).') do
 	options.multi=true
+    end
+
+    opts.on('-q','--quiet','Suppress output (progress bar).') do
+	options.quiet=true
     end
 
     opts.on_tail('-h', '--help', 'Show this message.') do

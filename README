@@ -16,7 +16,7 @@ Download:
    1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
       install the equivalents.
 
-      $ sudo apt-get install git ruby1.9.3 ruby-nokogiri ruby-taglib2 mimms ffmpeg
+      $ sudo apt-get install git ruby1.9.3 ruby-nokogiri ruby-progressbar ruby-taglib2 mimms ffmpeg
 
    2. Fetch the source.
 
