@@ -90,6 +90,50 @@ class ASXStream < Stream
     end
 end
 
+# A WatchedProcessGroup is a group of processes running in parallel,
+# all of which can collectively be watched to indicate progress so far.
+# It also supports visually representing progress of all processes
+# in the group as a progress bar.
+class WatchedProcessGroup < Array
+    def watch options
+	@bar=nil
+	update_bar=proc do |current,total|
+	    @bar=ProgressBar.new('Downloading',total) if total!=@old_total or @bar.nil?
+	    @old_total=total
+	    @bar.set current
+	end
+
+	all_done=false
+
+	until all_done do
+	    all_done=true
+	    current,@old_total,total=0,0,0
+	    each do |_|
+		begin
+		    status=_.watch options
+		rescue RuntimeError => e
+		    # TODO: wrap in an error handler to both log and print to stderr
+		    @log.error e.message
+		    $stderr.puts "\nE: %s: %s" % [@cmd,e.message]
+		    delete _
+		end
+		if status.current
+		    # The reported totals may not be accurate. Rather
+		    # than recompute the actual total when the track
+		    # finishes, just accumulate the reported total
+		    # to improve accuracy of the progress bar.
+		    current+=status.eof ? status.total : status.current
+		    total+=status.total
+		end
+		all_done=false unless status.eof
+	    end
+	    update_bar[current,total] if total>0
+	end
+
+	@bar.finish if @bar
+    end
+end
+
 # A WatchedProcess is a process producing output which can be watched
 # to indicate progress so far.
 class WatchedProcess
@@ -98,51 +142,10 @@ class WatchedProcess
 
     def initialize cmd
 	@out,out_write=IO.pipe
-	@pid=spawn cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
+	@cmd=cmd
+	@pid=spawn @cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
 	out_write.close
 	yield self if block_given?
-    end
-
-    def self.watch processes,options
-	# TODO: instead of class attributes, the bar should belong to an instance
-	# of a collection of processes. Likewise with status so that when the jobs
-	# are done, the ripper can determine the final status of each track and
-	# respond accordingly.
-	@bar=nil
-	update_bar=proc do |current,total|
-	    @bar=ProgressBar.new('Downloading',total) if total!=@old_total or @bar.nil?
-	    @old_total=total
-	    @bar.set current
-	end
-	if Array===processes
-	    all_done=false
-	    until all_done do
-		all_done=true
-		current,@old_total,total=0,0,0
-		processes.each do |_|
-		    status=_.watch options
-		    if status.current
-			# The reported totals may not be accurate. Rather
-			# than recompute the actual total when the track
-			# finishes, just accumulate the reported total
-			# to improve accuracy of the progress bar.
-			current+=status.eof ? status.total : status.current
-			total+=status.total
-		    end
-		    all_done=false unless status.eof
-		end
-		update_bar[current,total] if total>0
-	    end
-	else
-	    eof=nil
-	    @old_total=0
-	    until eof
-		status=processes.watch options
-		eof=status.eof
-		update_bar[status.current,status.total] if status.current && status.total>0
-	    end
-	end
-	@bar.finish if @bar
     end
 
     def watch options
@@ -189,7 +192,7 @@ class StreamTrackRipper
     TO_BYTES={'GB'=>1000000000,'MB'=>1000000,'KB'=>1000}
     def get tracks
 	trackfiles=[]
-	processes=[]
+	processes=WatchedProcessGroup.new
 	options=@options.dup
 	unless options.quiet
 	    options.progress=proc do |buffer|
@@ -201,6 +204,7 @@ class StreamTrackRipper
 		[current,total]
 	    end
 	    options.validate=proc do |buffer|
+		raise 'libmms connection error' if buffer.include? 'libmms error: libmms connection error'
 		buffer.include? 'Download complete!'
 	    end
 	end
@@ -218,11 +222,11 @@ class StreamTrackRipper
 	    end
 	    cmd='mimms "%s" "%s"' % [track.uri,output_filename]
 	    @log.info 'Spawning: %s' % cmd if @log
-	    processes << (_=WatchedProcess.new(cmd))
+	    processes << WatchedProcess.new(cmd)
 	    trackfiles << TrackFile.new(tags,output_filename,format)
-	    WatchedProcess.watch _,options unless @options.multi
+	    processes[-1,1].watch options unless @options.multi
 	end
-	WatchedProcess.watch processes,options if @options.multi
+	processes.watch options if @options.multi
 	trackfiles
     end
 
@@ -240,7 +244,7 @@ class StreamTrackRipper
 		    [input_filename,output_filename]
 	    end
 	    @log.info 'Spawning: %s' % cmd if @log
-	    WatchedProcess.watch(WatchedProcess.new(cmd),@options)
+	    WatchedProcessGroup.new([WatchedProcess.new(cmd)]).watch(@options)
 	    rm input_filename
 	    trackfile.filename=output_filename
 	    trackfile.format=format
@@ -322,7 +326,6 @@ OptionParser.new do |opts|
     end
 end.parse!
 
-# FIXME: refactor into proper CLI/argument parser:
 input_filename=ARGV.shift
 
 StreamTrackRipper.new(ASXStream.new(input_filename),options){}
