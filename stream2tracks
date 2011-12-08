@@ -135,7 +135,12 @@ class WatchedProcessGroup < Array
 end
 
 # A WatchedProcess is a process producing output which can be watched
-# to indicate progress so far.
+# to indicate progress so far and validate output.
+# - It supports these behaviours with the following callbacks:
+#    progress[@buffer] => [current,total]
+#    validate[@buffer] => true when download is complete and successful
+#    - validate may raise if an unrecoverable error occurs before the
+#      process is complete
 class WatchedProcess
     MAX_READ_LEN=1024 # completely arbitrary
     class Status < Struct.new :eof,:valid,:current,:total ; end
@@ -154,9 +159,7 @@ class WatchedProcess
 	output=@out.readpartial MAX_READ_LEN rescue EOFError
 	@buffer << output if output
 	$stderr.print output if options.debug and output
-	if progress
-	    current,total=progress[@buffer]
-	end
+	current,total=progress[@buffer] if progress
 	eof=@out.eof?
 	valid=validate[@buffer] if validate
 	Status.new eof,valid,current,total
