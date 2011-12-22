@@ -24,9 +24,13 @@ Download:
 
 Install:
 
-   3. Just put the script in a directory included in your PATH, e.g.
+   3. Install using Minero Aoki's setup.rb, e.g.
 
-      $ cp stream2tracks/stream2tracks ~/bin
+      $ cd stream2tracks
+      $ ruby1.9.1 setup.rb config --prefix=/usr/local
+      $ sudo ruby1.9.1 setup.rb install
+
+      See setup.rb --help for other possible options.
 
 Usage:
 
