@@ -1,6 +1,12 @@
-#! /usr/bin/ruby1.9.1
+#! /usr/bin/ruby
 
 $:.unshift(File.dirname(__FILE__ + '.rb') + '/../lib')
+
+begin
+    require 'sfl' # For ruby 1.8 compatibility
+rescue LoadError
+end
+
 require 'stream2tracks/cli'
 
 stream2tracks ARGV
