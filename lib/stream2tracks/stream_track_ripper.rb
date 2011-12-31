@@ -6,7 +6,7 @@ require 'stream2tracks/asx_stream'
 require 'stream2tracks/process'
 
 class StreamTrackRipper
-    Version=['0','0','2']
+    Version=['0','0','3']
 
     def initialize stream,options
 	@stream=stream

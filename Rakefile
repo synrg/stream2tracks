@@ -19,7 +19,7 @@ task :default => ["spec"]
 spec = Gem::Specification.new do |s|
 
   s.name              = "stream2tracks"
-  s.version           = "0.0.2"
+  s.version           = "0.0.3"
   s.description	      = "Stream ripper and tagger supporting asx, ogg, mp3, flac, etc."
   s.summary           = "Download stream as converted, tagged, renamed tracks; asx input and ogg, mp3, flac, etc. output supported."
   s.author            = "Ben Armstrong"
