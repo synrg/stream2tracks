@@ -16,21 +16,11 @@ Download:
    1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
       install the equivalents.
 
-      $ sudo apt-get install git ruby1.9.3 ruby-nokogiri ruby-progressbar ruby-taglib2 mimms ffmpeg
+      $ sudo apt-get install mimms ffmpeg
 
-   2. Fetch the source.
+   2. Install the gem.
 
-      $ git clone git://github.com/synrg/stream2tracks.git
-
-Install:
-
-   3. Install using Minero Aoki's setup.rb, e.g.
-
-      $ cd stream2tracks
-      $ ruby1.9.1 setup.rb config --prefix=/usr/local
-      $ sudo ruby1.9.1 setup.rb install
-
-      See setup.rb --help for other possible options.
+      $ sudo gem install stream2tracks
 
 Usage:
 
@@ -61,6 +51,26 @@ Where to find streams:
    be some variations in the formats and metadata wrapped in the streams, so
    I would be happy to hear about your experience using this script with
    other sites as well.
+
+You can also install from source:
+
+   1. Fetch the source.
+
+      $ git clone git://github.com/synrg/stream2tracks.git
+
+   2a. Build and install the gem.
+
+      $ cd stream2tracks
+      $ rake package
+      $ sudo gem install pkg/stream2tracks*.gem
+
+   2b. Or install using Minero Aoki's setup.rb, e.g.
+
+      $ cd stream2tracks
+      $ ruby setup.rb config --prefix=/usr/local
+      $ sudo ruby setup.rb install
+
+      See setup.rb --help for other possible options.
 
 Bugs:
 
