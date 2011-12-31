@@ -9,7 +9,9 @@ def stream2tracks argv
     options.debug=false
     options.log=nil
 
-    OptionParser.new do |opts|
+    opts=OptionParser.new do |opts|
+	opts.banner = 'Usage: stream2tracks [options] FILENAME|URL'
+
 	opts.on('-d','--debug','Output debugging info.') do
 	    options.debug=true
 	end
@@ -39,7 +41,13 @@ def stream2tracks argv
 	    puts StreamTrackRipper::Version.join('.')
 	    exit
 	end
-    end.parse! argv
+    end
+    opts.parse! argv
+
+    unless argv.size == 1
+	puts opts
+	exit
+    end
 
     input_filename=argv.shift
 
