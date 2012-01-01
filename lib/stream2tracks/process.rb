@@ -9,7 +9,7 @@ class WatchedProcessGroup < Array
 	@bar=nil
 	update_bar=proc do |current,total|
 	    # FIXME: remove hardwired 'Downloading' label
-	    @bar=ProgressBar.new('Downloading',total) if total!=@old_total or @bar.nil?
+	    @bar=ProgressBar.new('Downloading',total,$stderr) if total!=@old_total or @bar.nil?
 	    @old_total=total
 	    @bar.set current
 	end
