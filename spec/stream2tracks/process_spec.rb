@@ -1,14 +1,19 @@
 require 'stream2tracks/process'
 require 'ostruct'
 
+TEST_CMD=%[for i in $(seq 3); do echo $i; sleep .01; done; echo done]
+TEST_VALIDATE=proc{|buf|/done/.match(buf) ? true : false}
+TEST_PROGRESS=proc{|buf|cur=0; buf.scan(/\d+/).each{|i|cur+=i.to_i} ; [cur,6]}
+TEST_CURRENT=[1,3,6,6]
+
 describe WatchedProcess do
     describe '#watch' do
 	before :each do
-	    @process=WatchedProcess.new %[for i in $(seq 3); do echo $i; sleep .01; done; echo done]
+	    @process=WatchedProcess.new TEST_CMD
 	end
 	it 'should validate output' do
 	    options=OpenStruct.new
-	    options.validate=proc{|buf|/done/.match(buf) ? true : false}
+	    options.validate=TEST_VALIDATE
 	    eof,status,count=nil,nil,0
 	    while !eof
 		status=@process.watch options
@@ -20,12 +25,11 @@ describe WatchedProcess do
 	end
 	it 'should measure progress' do
 	    options=OpenStruct.new
-	    options.progress=proc{|buf|cur=0; buf.scan(/\d+/).each{|i|cur+=i.to_i} ; [cur,6]}
+	    options.progress=TEST_PROGRESS
 	    eof,status,count,total=nil,nil,0,0
-	    progress=[1,3,6,6]
 	    while !eof
 		status=@process.watch options
-		status.current.should == progress[count]
+		status.current.should == TEST_CURRENT[count]
 		count+=1
 		eof=status.eof
 	    end
@@ -36,8 +40,17 @@ end
 
 describe WatchedProcessGroup do
     describe '#watch' do
+	before :each do
+	    $stderr=StringIO.new
+	end
 	it 'should run a single process' do
-	    pending()
+	    options=OpenStruct.new
+	    options.validate=TEST_VALIDATE
+	    options.progress=TEST_PROGRESS
+	    processes=WatchedProcessGroup.new
+	    processes << WatchedProcess.new(TEST_CMD)
+	    processes.watch options
+	    $stderr.string.should match(/100%/)
 	end
 	it 'should run multiple processes concurrently' do
 	    pending()
