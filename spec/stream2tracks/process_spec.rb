@@ -4,7 +4,7 @@ require 'ostruct'
 describe WatchedProcess do
     describe '#watch' do
 	before :each do
-	    @process=WatchedProcess.new %[sh -c 'for i in $(seq 3) ; do echo $i ; sleep .01 ; done ; echo done']
+	    @process=WatchedProcess.new %[for i in $(seq 3); do echo $i; sleep .01; done; echo done]
 	end
 	it 'should validate output' do
 	    options=OpenStruct.new
