@@ -1,0 +1,39 @@
+= 0.0.3 (Unreleased)
+
+ * Put under test using rspec.
+
+= 0.0.2 / 2011-12-31
+
+ * Package as a gem.
+ * Add a Rakefile, rspec stubs.
+ * Provide setup.rb as alternate install method.
+ * More extensive restructuring into classes, proper project structure.
+ * Improve process model using Ruby 1.9 spawn, with legacy Ruby 1.8 supported
+   via sfl. Closes #1, #3, #9.
+ * Add multi mode using new process model. Closes #16.
+ * Properly support logging via Logger.
+ * Add debug mode.
+ * Add rudimentary error handling and validation.
+ * Support progress bar and quiet mode to suppress output.
+ * Change from tagging via id3v2 and vorbiscomment to taglib2. Closes #2, #4.
+ * Change from lltag to rename tracks to internal renaming scheme. Closes #5.
+ * Fix all tracks downloaded to same filename overwriting prior tracks,
+   introduced in an interim commit. Closes #15.
+
+= 0.0.1 / 2011-11-27
+
+ * Rename from asx2mp3 to stream2tracks.
+ * Support any output format ffmpeg supports.
+ * Initial restructuring of code into classes.
+ * Initial command line interface support.
+ * Initial documentation.
+ * Keep a log for each system command.
+
+= Unversioned / 2011-11-17
+
+ * First working version.
+ * Use nokogiri to parse ASX stream.
+ * Get files from stream via mplayer -dumpstream.
+ * Initial tagging support via id3v2.
+ * Hardcoded conversion of wmv to mp3 via ffmpeg.
+
