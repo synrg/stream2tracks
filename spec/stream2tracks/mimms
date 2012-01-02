@@ -1,0 +1,13 @@
+#! /bin/sh
+
+LIBMMS_ERROR=${LIBMMS_ERROR:=0}
+input_file="$1"
+input_file="${input_file#file://}"
+output_file="$2"
+
+if [ $LIBMMS_ERROR -eq 1 ] ; then
+    echo "libmms: error"
+else
+    cp -v "$input_file" "$output_file"
+    echo "Download complete!"
+fi
