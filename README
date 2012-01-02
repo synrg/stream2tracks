@@ -19,7 +19,7 @@ Download:
       into the desired format. The -dev packages are required to build native
       gems for nokogiri and taglib2.
 
-      $ sudo apt-get install mimms ffmpeg libxml2-dev libtagc0-dev
+      $ sudo apt-get install mimms ffmpeg libxml2-dev libxslt-dev libtagc0-dev
 
    2. Install the gem.
 
