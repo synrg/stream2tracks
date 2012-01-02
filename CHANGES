@@ -1,6 +1,7 @@
-= 0.0.3 (Unreleased)
+= 0.0.3 / 2012-01-02
 
  * Put under test using rspec.
+ * Minor improvements in API facilitating testing.
 
 = 0.0.2 / 2011-12-31
 
