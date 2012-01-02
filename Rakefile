@@ -30,7 +30,7 @@ spec = Gem::Specification.new do |s|
   s.extra_rdoc_files  = %w(README)
   s.rdoc_options      = %w(--main README)
 
-  s.files             = %w(AUTHORS README TODO COPYING) + Dir.glob("{bin,spec,lib}/**/*")
+  s.files             = %w(AUTHORS README TODO COPYING CHANGES) + Dir.glob("{bin,spec,lib}/**/*")
   s.executables       = FileList["bin/**"].map { |f| File.basename(f) }
   s.require_paths     = ["lib"]
   s.add_dependency 'nokogiri', '~> 1.5'

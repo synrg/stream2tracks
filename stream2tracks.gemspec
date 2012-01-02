@@ -11,7 +11,7 @@ Gem::Specification.new do |s|
   s.email = "synrg@debian.org"
   s.executables = ["stream2tracks"]
   s.extra_rdoc_files = ["README"]
-  s.files = ["AUTHORS", "README", "TODO", "COPYING", "bin/stream2tracks", "spec/stream2tracks", "spec/stream2tracks/cli_spec.rb", "spec/stream2tracks/test.wav", "spec/stream2tracks/process_spec.rb", "spec/stream2tracks/mimms", "spec/stream2tracks/asx_stream_spec.rb", "spec/stream2tracks/stream_spec.rb", "spec/stream2tracks/stream_track_ripper_spec.rb", "lib/stream2tracks", "lib/stream2tracks/process.rb", "lib/stream2tracks/asx_stream.rb", "lib/stream2tracks/cli.rb", "lib/stream2tracks/stream.rb", "lib/stream2tracks/stream_track_ripper.rb", "lib/stream2tracks.rb"]
+  s.files = ["AUTHORS", "README", "TODO", "COPYING", "CHANGES", "bin/stream2tracks", "spec/stream2tracks", "spec/stream2tracks/cli_spec.rb", "spec/stream2tracks/test.wav", "spec/stream2tracks/process_spec.rb", "spec/stream2tracks/mimms", "spec/stream2tracks/asx_stream_spec.rb", "spec/stream2tracks/stream_spec.rb", "spec/stream2tracks/stream_track_ripper_spec.rb", "lib/stream2tracks", "lib/stream2tracks/process.rb", "lib/stream2tracks/asx_stream.rb", "lib/stream2tracks/cli.rb", "lib/stream2tracks/stream.rb", "lib/stream2tracks/stream_track_ripper.rb", "lib/stream2tracks.rb"]
   s.homepage = "http://github.com/synrg/stream2tracks"
   s.rdoc_options = ["--main", "README"]
   s.require_paths = ["lib"]
