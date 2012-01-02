@@ -16,7 +16,7 @@ Download:
    1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
       install the equivalents.
 
-      $ sudo apt-get install mimms ffmpeg
+      $ sudo apt-get install mimms ffmpeg libxml2-dev libtagc0-dev
 
    2. Install the gem.
 
