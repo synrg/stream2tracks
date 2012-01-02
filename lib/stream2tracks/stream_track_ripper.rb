@@ -8,12 +8,15 @@ require 'stream2tracks/process'
 class StreamTrackRipper
     Version=['0','0','3']
 
+    attr_accessor :tracks,:trackfiles
+
     def initialize stream,options
 	@stream=stream
 	@options=options
 	@options.env||={}
 	@log=Logger.new @options.log=='-' ? $stderr : @options.log if @options.log
 	@tracks=@stream.parse
+	@trackfiles=[]
 	@log.info 'Processing stream: %s' % @stream.key if @log
 	@log.info 'Found %i tracks' % @tracks.count if @log
 	album=@stream.tags[:album]
@@ -23,18 +26,17 @@ class StreamTrackRipper
 	mkdir_p @workdir
 	if block_given?
 	    # TODO: support (re)processing selected tracks from any stage
-	    trackfiles=get @tracks
-	    trackfiles=convert trackfiles,@options.format
-	    trackfiles=tag trackfiles
-	    @trackfiles=rename trackfiles
+	    get
+	    convert
+	    tag
+	    rename
 	    yield
 	end
 	# TODO: report on any failures
     end
 
     TO_BYTES={'GB'=>1000000000,'MB'=>1000000,'KB'=>1000}
-    def get tracks
-	trackfiles=[]
+    def get
 	processes=WatchedProcessGroup.new
 	options=@options.dup
 	unless options.quiet
@@ -51,7 +53,7 @@ class StreamTrackRipper
 		buffer.include? 'Download complete!'
 	    end
 	end
-	tracks.each do |track|
+	@tracks.each do |track|
 	    tags=track.tags
 	    # TODO: support formats which may not be possible to determine
 	    # from the file extension of the entry in the stream (using
@@ -66,19 +68,18 @@ class StreamTrackRipper
 	    cmd='mimms "%s" "%s"' % [track.uri,output_filename]
 	    @log.info 'Spawning: %s' % cmd if @log
 	    processes << WatchedProcess.new(cmd,@options.env)
-	    trackfiles << TrackFile.new(tags,output_filename,format)
+	    @trackfiles << TrackFile.new(tags,output_filename,format)
 	    processes[-1,1].watch options unless @options.multi
 	end
 	processes.watch options if @options.multi
-	trackfiles
     end
 
-    def convert trackfiles,format
-	trackfiles.each do |trackfile|
+    def convert
+	@trackfiles.each do |trackfile|
 	    tags=trackfile.tags
 	    input_filename=trackfile.filename
-	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],format]
-	    cmd=case format
+	    output_filename=File.join @workdir,'%02d.%s' % [tags[:track],@options.format]
+	    cmd=case @options.format
 	    when 'ogg'
 		'ffmpeg -i "%s" -acodec libvorbis "%s"' %
 		    [input_filename,output_filename]
@@ -90,13 +91,12 @@ class StreamTrackRipper
 	    WatchedProcessGroup.new([WatchedProcess.new(cmd,@options.env)]).watch(@options)
 	    rm input_filename
 	    trackfile.filename=output_filename
-	    trackfile.format=format
+	    trackfile.format=@options.format
 	end
-	trackfiles
     end
 
-    def tag trackfiles
-	trackfiles.each do |trackfile|
+    def tag
+	@trackfiles.each do |trackfile|
 	    @log.info 'Tagging: %s' % trackfile.filename if @log
 	    tags=trackfile.tags
 	    file=TagLib::File.new trackfile.filename
@@ -106,11 +106,10 @@ class StreamTrackRipper
 	    file.track  = tags[:track]
 	    file.save
 	end
-	trackfiles
     end
 
-    def rename trackfiles
-	trackfiles.each do |trackfile|
+    def rename
+	@trackfiles.each do |trackfile|
 	    tags=trackfile.tags
 	    input_filename=trackfile.filename
 	    output_filename='%02d-%s-%s.%s' %
@@ -127,7 +126,6 @@ class StreamTrackRipper
 	    mv input_filename,output_filename
 	    trackfile.filename=output_filename
 	end
-	trackfiles
     end
 end
 
