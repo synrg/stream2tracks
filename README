@@ -14,7 +14,10 @@ stream2tracks-
 Download:
 
    1. On Debian Wheezy/Sid, install these dependencies. For other platforms,
-      install the equivalents.
+      install the equivalents. stream2tracks uses mimms to download mms streams
+      contained within ASX stream containers and ffmpeg to transcode the tracks
+      into the desired format. The -dev packages are required to build native
+      gems for nokogiri and taglib2.
 
       $ sudo apt-get install mimms ffmpeg libxml2-dev libtagc0-dev
 
