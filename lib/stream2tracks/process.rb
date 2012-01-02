@@ -57,10 +57,10 @@ class WatchedProcess
     MAX_READ_LEN=1024 # completely arbitrary
     class Status < Struct.new :eof,:valid,:current,:total ; end
 
-    def initialize cmd
+    def initialize cmd,env={}
 	@out,out_write=IO.pipe
 	@cmd=cmd
-	@pid=spawn @cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
+	@pid=spawn env,@cmd,:in=>:close,:out=>out_write,:err=>[:child,:out]
 	out_write.close
 	yield self if block_given?
     end

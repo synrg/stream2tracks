@@ -11,6 +11,7 @@ class StreamTrackRipper
     def initialize stream,options
 	@stream=stream
 	@options=options
+	@options.env||={}
 	@log=Logger.new @options.log=='-' ? $stderr : @options.log if @options.log
 	@tracks=@stream.parse
 	@log.info 'Processing stream: %s' % @stream.key if @log
@@ -64,7 +65,7 @@ class StreamTrackRipper
 	    end
 	    cmd='mimms "%s" "%s"' % [track.uri,output_filename]
 	    @log.info 'Spawning: %s' % cmd if @log
-	    processes << WatchedProcess.new(cmd)
+	    processes << WatchedProcess.new(cmd,@options.env)
 	    trackfiles << TrackFile.new(tags,output_filename,format)
 	    processes[-1,1].watch options unless @options.multi
 	end
@@ -86,7 +87,7 @@ class StreamTrackRipper
 		    [input_filename,output_filename]
 	    end
 	    @log.info 'Spawning: %s' % cmd if @log
-	    WatchedProcessGroup.new([WatchedProcess.new(cmd)]).watch(@options)
+	    WatchedProcessGroup.new([WatchedProcess.new(cmd,@options.env)]).watch(@options)
 	    rm input_filename
 	    trackfile.filename=output_filename
 	    trackfile.format=format
