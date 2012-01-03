@@ -27,7 +27,7 @@ class TrackFile < Struct.new :tags,:filename,:format ; end
 
 # An abstract class
 class Stream
-    attr_accessor :tags,:key
+    attr_accessor :tags
 
     def initialize path
 	@path=path
