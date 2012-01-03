@@ -24,7 +24,6 @@ describe StreamTrackRipper do
         @stream_file.puts %[<ASX VERSION="3.0">\n<TITLE>%s</TITLE>] % @album
 	i=0
         @titles.each do |title|
-	    # FIXME: use temporary files
             @stream_file.puts %[<ENTRY>\n<TITLE>%s</TITLE>\n<REF HREF="file://%s" />] %
 		[title,File.expand_path(@wav_files[i].path)]
             @stream_file.puts %[<AUTHOR>%s</AUTHOR>\n<PARAM NAME="Prebuffer" VALUE="true" />] % @artist
